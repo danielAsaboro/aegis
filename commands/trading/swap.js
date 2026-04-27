@@ -6,6 +6,18 @@ import { getConfigValue } from "../../utils/config.js";
 import { formatSwapQuote } from "../../utils/common/format.js";
 import { validateChain } from "../../utils/common/validate.js";
 
+// AEGIS policy enforcement (optional — engine module is part of the AEGIS overlay)
+let runPolicies, createTradeProposal, getDefaultPolicies;
+try {
+  const engine = await import("../../engine/policies/engine.mjs");
+  const types = await import("../../engine/core/types.mjs");
+  runPolicies = engine.runPolicies;
+  getDefaultPolicies = engine.getDefaultPolicies;
+  createTradeProposal = types.createTradeProposal;
+} catch {
+  // AEGIS not available — policy enforcement is a no-op
+}
+
 export default async function swap(args, flags) {
   const [fromToken, toToken, amount] = args;
 
@@ -53,7 +65,35 @@ export default async function swap(args, flags) {
       process.exit(1);
     }
 
-    // 3. Show quote
+    // 3. Run AEGIS policy checks (if engine is loaded and not skipped)
+    const skipPolicies = flags["skip-policies"] || flags.skipPolicies;
+    if (runPolicies && createTradeProposal && !skipPolicies) {
+      const proposal = createTradeProposal({
+        strategyId: "cli-swap",
+        strategyType: "manual",
+        fromToken: fromToken.toUpperCase(),
+        toToken: toToken.toUpperCase(),
+        amount: parseFloat(amount),
+        chain: fromChain,
+        reason: "CLI swap command",
+      });
+
+      const policyConfig = {
+        "spend-limit": { perTick: 1000, daily: 5000 },
+        ...getDefaultPolicies("manual"),
+      };
+
+      const policyResult = await runPolicies(proposal, policyConfig);
+      if (!policyResult.approved) {
+        printError("policy_denied", `Trade blocked by policy: ${policyResult.deniedBy}`, {
+          reason: policyResult.reason,
+          suggestion: "Use --skip-policies to bypass policy checks (use with caution)",
+        });
+        process.exit(1);
+      }
+    }
+
+    // 4. Show quote
     const isCrossChain = fromChain !== toChain;
     const quoteSummary = {
       swap: {
@@ -66,10 +106,11 @@ export default async function swap(args, flags) {
         fromChain,
         toChain: isCrossChain ? toChain : undefined,
         chain: isCrossChain ? `${fromChain} → ${toChain}` : fromChain,
+        policiesChecked: !skipPolicies && runPolicies ? true : undefined,
       },
     };
 
-    // 4. Execute — agent token required (no interactive passphrase for trading)
+    // 5. Execute — agent token required (no interactive passphrase for trading)
     const passphrase = await requireAgentToken("for trading", walletName);
     const timeout = parseTimeout(flags.timeout);
     const result = await executeSwap(quote, walletName, passphrase, { timeout });

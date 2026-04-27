@@ -5,7 +5,8 @@
   "author": "Zerion",
   "type": "module",
   "bin": {
-    "zerion": "./zerion.js"
+    "zerion": "./zerion.js",
+    "aegis": "./engine/index.mjs"
   },
   "files": [
     "zerion.js",
@@ -13,14 +14,27 @@
     "commands/",
     "utils/",
     "policies/",
+    "engine/**/*.mjs",
     "README.md",
     "LICENSE"
   ],
   "scripts": {
+    "start": "node --env-file=.env engine/index.mjs",
+    "demo": "node --env-file=.env scripts/demo.mjs",
     "test": "node --test 'tests/unit/**/*.test.mjs'",
     "test:unit": "node --test 'tests/unit/**/*.test.mjs'",
     "test:integration": "node --test --test-concurrency=1 'tests/integration/**/*.test.mjs'",
     "test:integration:auth": "node --test tests/integration/auth.test.mjs",
+    "test:engine": "node --env-file=.env --test 'tests/engine/**/*.test.mjs'",
+    "test:e2e": "node --env-file=.env --test tests/e2e/simple-test.mjs tests/e2e/minimal-real.test.mjs",
+    "test:e2e:simple": "node --env-file=.env --test tests/e2e/simple-test.mjs",
+    "test:e2e:minimal": "node --env-file=.env --test tests/e2e/minimal-real.test.mjs",
+    "test:e2e:working": "node --env-file=.env --test tests/e2e/working-wallet.test.mjs",
+    "test:e2e:wallet": "node --env-file=.env --test tests/e2e/wallet-operations.test.mjs",
+    "test:e2e:dca": "node --env-file=.env --test tests/e2e/dca-strategy.test.mjs",
+    "test:e2e:privacy": "node --env-file=.env --test tests/e2e/privacy-trading.test.mjs",
+    "test:e2e:consensus": "node --env-file=.env --test tests/e2e/group-consensus.test.mjs",
+    "test:e2e:signals": "node --env-file=.env --test tests/e2e/signal-automation.test.mjs",
     "test:all": "node --test 'tests/**/*.test.mjs'",
     "prepublishOnly": "npm test"
   },
