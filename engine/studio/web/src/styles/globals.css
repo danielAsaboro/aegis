@@ -1,0 +1,71 @@
+@import './tokens.css';
+@import './fonts.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  background-color: var(--paper);
+  color: var(--ink);
+  font-family: 'Geist', ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  /* Faint sketchpad dot grid + paper noise */
+  background-image:
+    radial-gradient(circle at 1px 1px, rgba(31, 29, 27, 0.08) 1px, transparent 0);
+  background-size: 28px 28px;
+}
+
+/* Tabular nums only on numeric cells */
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+/* The doodle reveal — title path animation. */
+.doodle-draw path {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  pathLength: 1;
+  animation: draw 600ms ease-out forwards;
+}
+
+@keyframes draw {
+  to { stroke-dashoffset: 0; }
+}
+
+/* Subtle paper noise overlay layered on top of the dot grid */
+.paper-noise {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.04;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.6 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+}
+
+/* Sticky note "tape" effect */
+.tape {
+  background: var(--ink);
+  opacity: 0.55;
+  transform: rotate(-2deg);
+  border-radius: 1px;
+}
+
+/* Scrollbar — faint, paper-toned */
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb {
+  background: var(--paper-edge);
+  border-radius: 6px;
+  border: 2px solid var(--paper);
+}
+*::-webkit-scrollbar-thumb:hover { background: var(--graphite); opacity: 0.4; }
+
+/* Selection */
+::selection { background: var(--butter); color: var(--ink); }

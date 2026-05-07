@@ -22,7 +22,7 @@ export function registerPolicy(bot) {
     }
 
     // Show active plan policies
-    const dcaPlans = getDCAPlans(ctx.chat.id);
+    const dcaPlans = await getDCAPlans(ctx.chat.id);
     if (dcaPlans.length > 0) {
       lines.push('\n*Active DCA Plan Policies*');
       for (const plan of dcaPlans) {

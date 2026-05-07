@@ -7,7 +7,9 @@ import { DipBuyerStrategy } from './dip-buyer.mjs';
 import { TakeProfitStrategy } from './take-profit.mjs';
 import { RebalancerStrategy } from './rebalancer.mjs';
 import { GroupConsensusStrategy } from './group-consensus.mjs';
+import { AgentStrategy } from './agent.mjs';
 import { strategyLog } from '../core/logger.mjs';
+import env from '../config.mjs';
 
 const _strategies = new Map();
 
@@ -27,6 +29,22 @@ export function startAllStrategies(config) {
     new RebalancerStrategy({ walletName }),
     new GroupConsensusStrategy({ walletName }),
   ];
+
+  // The LLM agent strategy only attaches when autonomy != 'off' AND at
+  // least one model backend is reachable. Backends are subscription-only
+  // or local: codex (Codex CLI on PATH or CODEX_BIN) and qvac (a real
+  // QVAC_LLM_MODEL_PATH on disk). Without one of these, AgentStrategy
+  // would loop waiting on a model it can never load.
+  const hasCodex = env.AEGIS_AGENT_MODEL.startsWith('codex/');
+  const hasQvac = env.AEGIS_AGENT_MODEL.startsWith('qvac/') && !!env.QVAC_LLM_MODEL_PATH;
+  if (env.AEGIS_AGENT_AUTONOMY !== 'off' && (hasCodex || hasQvac)) {
+    strategies.push(new AgentStrategy({ walletName }));
+  } else if (env.AEGIS_AGENT_AUTONOMY !== 'off') {
+    strategyLog.warn(
+      `AEGIS_AGENT_AUTONOMY=${env.AEGIS_AGENT_AUTONOMY} but no usable backend ` +
+      `(AEGIS_AGENT_MODEL=${env.AEGIS_AGENT_MODEL}, QVAC_LLM_MODEL_PATH=${env.QVAC_LLM_MODEL_PATH ? 'set' : 'unset'}) — AgentStrategy not attached`
+    );
+  }
 
   for (const strategy of strategies) {
     if (notifyFn) strategy.onNotify(notifyFn);

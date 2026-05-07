@@ -9,17 +9,18 @@
  * Imports directly from the forked Zerion CLI for swap execution.
  */
 
-import { getSwapQuote, executeSwap } from '../../cli/lib/trading/swap.js';
-import { getEvmAddress, getSolAddress, getAgentToken } from '../../cli/lib/wallet/keystore.js';
-import { isSolana } from '../../cli/lib/chain/registry.js';
+import { getSwapQuote, executeSwap } from '../../utils/trading/swap.js';
+import { getEvmAddress, getSolAddress, getAgentToken } from '../../utils/wallet/keystore.js';
+import { isSolana } from '../../utils/chain/registry.js';
 import { createExecutionResult } from '../core/types.mjs';
 import { executionLog } from '../core/logger.mjs';
 import { logExecution } from '../store/executions.mjs';
 import { recordSpend, setCooldown } from '../store/state.mjs';
-import { updateDCAPlan } from '../store/plans.mjs';
+import { updateDCAPlan, getDCAPlan } from '../store/plans.mjs';
 import { executePrivateTrade } from './private-executor.mjs';
 import { shouldUsePrivate } from '../policies/privacy.mjs';
 import { getKeypair } from '../lib/keypair.mjs';
+import { recordMissionTrade } from '../missions/index.mjs';
 import bus from '../core/event-bus.mjs';
 
 /**
@@ -41,6 +42,17 @@ import bus from '../core/event-bus.mjs';
 export async function executeTrade(proposal, { walletName, maxSlippage, usePrivate } = {}) {
   const startTime = Date.now();
   const chain = proposal.chain || 'solana';
+
+  // Defensive: refuse to execute a trade that wasn't gated by the policy engine.
+  // Callers must attach proposal.policyResult after a successful runPolicies() call.
+  if (!proposal.policyResult || proposal.policyResult.approved !== true) {
+    const err = new Error(
+      `executeTrade refused: proposal ${proposal.id} has no approved policyResult. ` +
+      `Run policies via runPolicies() and attach the result before calling the executor.`
+    );
+    err.code = 'no_policy_result';
+    throw err;
+  }
 
   // Determine if we should use private execution
   const goPrivate = usePrivate || proposal.usePrivate || proposal.forcePrivate ||
@@ -104,16 +116,16 @@ export async function executeTrade(proposal, { walletName, maxSlippage, usePriva
     }, 'Trade executed successfully');
 
     // Record spend + cooldown
-    recordSpend(proposal.strategyId, Number(proposal.amount));
+    await recordSpend(proposal.strategyId, Number(proposal.amount));
     if (proposal.policies?.cooldownMs) {
-      setCooldown(proposal.strategyId, proposal.policies.cooldownMs);
+      await setCooldown(proposal.strategyId, proposal.policies.cooldownMs);
     }
 
     // Update DCA plan stats if applicable
     if (proposal.strategyType === 'dca' && proposal.strategyId) {
-      const plan = await import('../store/plans.mjs').then(m => m.getDCAPlan(proposal.strategyId));
+      const plan = await getDCAPlan(proposal.strategyId);
       if (plan) {
-        updateDCAPlan(proposal.strategyId, {
+        await updateDCAPlan(proposal.strategyId, {
           totalExecuted: (plan.totalExecuted || 0) + 1,
           totalSpent: (plan.totalSpent || 0) + Number(proposal.amount),
         });
@@ -125,8 +137,22 @@ export async function executeTrade(proposal, { walletName, maxSlippage, usePriva
       txHash,
       quote,
     });
+    if (proposal.missionId) result.missionId = proposal.missionId;
 
-    logExecution(result);
+    await logExecution(result);
+
+    if (proposal.missionId) {
+      try {
+        await recordMissionTrade({
+          missionId: proposal.missionId,
+          executionId: result.id,
+          amountUsd: Number(proposal.amount),
+          txHash,
+        });
+      } catch (err) {
+        executionLog.warn({ missionId: proposal.missionId, err: err.message }, 'recordMissionTrade failed');
+      }
+    }
 
     // Emit execution event for bot notifications
     bus.emit('EXECUTION_COMPLETE', result);
@@ -146,7 +172,7 @@ export async function executeTrade(proposal, { walletName, maxSlippage, usePriva
       error: err.message,
     });
 
-    logExecution(result);
+    await logExecution(result);
     bus.emit('EXECUTION_FAILED', result);
 
     return result;

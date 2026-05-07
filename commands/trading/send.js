@@ -11,6 +11,18 @@ import { NATIVE_ASSET_ADDRESS } from "../../utils/common/constants.js";
 import { formatSwapQuote } from "../../utils/common/format.js";
 import { validateChain } from "../../utils/common/validate.js";
 
+async function loadAegis() {
+  const [engine, types] = await Promise.all([
+    import("../../engine/policies/engine.mjs"),
+    import("../../engine/core/types.mjs"),
+  ]);
+  return {
+    runPolicies: engine.runPolicies,
+    getDefaultPolicies: engine.getDefaultPolicies,
+    createTradeProposal: types.createTradeProposal,
+  };
+}
+
 const ERC20_TRANSFER_ABI = parseAbi([
   "function transfer(address to, uint256 amount) returns (bool)",
 ]);
@@ -81,6 +93,29 @@ export default async function send(args, flags) {
         type: isNative ? "native" : "erc20",
       },
     };
+
+    // AEGIS policy gate — every send must pass scoped policies.
+    const proposal = createTradeProposal({
+      strategyId: "cli-send",
+      strategyType: "manual",
+      fromToken: resolved.symbol,
+      toToken: resolved.symbol,
+      amount: parseFloat(amount),
+      chain,
+      reason: `CLI send to ${to}`,
+    });
+    const policyConfig = {
+      "spend-limit": { perTick: 5000, daily: 20000 },
+      ...getDefaultPolicies("manual"),
+    };
+    const policyResult = await runPolicies(proposal, policyConfig);
+    if (!policyResult.approved) {
+      printError("policy_denied", `Send blocked by policy: ${policyResult.deniedBy}`, {
+        reason: policyResult.reason,
+      });
+      process.exit(1);
+    }
+    proposal.policyResult = policyResult;
 
     // Agent token required — no interactive passphrase for trading
     const passphrase = await requireAgentToken("for trading", walletName);

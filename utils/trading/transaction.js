@@ -9,7 +9,7 @@ import {
   encodeFunctionData,
   parseAbi,
 } from "viem";
-import { getViemChain, toCaip2 } from "../chain/registry.js";
+import { getViemChain, toCaip2, getEvmRpcUrl } from "../chain/registry.js";
 import * as ows from "../wallet/keystore.js";
 
 const ERC20_APPROVE_ABI = parseAbi([
@@ -22,7 +22,8 @@ const ERC20_APPROVE_ABI = parseAbi([
 export function getPublicClient(zerionChainId) {
   const viemChain = getViemChain(zerionChainId);
   if (!viemChain) throw new Error(`Unsupported chain: ${zerionChainId}`);
-  return createPublicClient({ chain: viemChain, transport: http() });
+  const override = getEvmRpcUrl(zerionChainId);
+  return createPublicClient({ chain: viemChain, transport: override ? http(override) : http() });
 }
 
 /**

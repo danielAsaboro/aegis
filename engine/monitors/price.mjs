@@ -37,7 +37,7 @@ export function stopPriceMonitor() {
 }
 
 async function checkPrices() {
-  const alerts = getActivePriceAlerts();
+  const alerts = await getActivePriceAlerts();
   if (alerts.length === 0) return;
 
   // Dedupe tokens to minimize API calls
@@ -54,16 +54,18 @@ async function checkPrices() {
       const priceData = await getTokenPrice(token, chain);
       if (!priceData || !priceData.price) continue;
 
-      const prev = getPrice(token, chain);
+      const prev = await getPrice(token, chain);
       const prevPrice = prev?.price || null;
-      setPrice(token, chain, priceData.price);
+      await setPrice(token, chain, priceData.price);
 
       // Process alerts for this token
       const tokenAlerts = alerts.filter(a => a.token === token && a.chain === chain);
+      const { updatePriceAlert } = await import('../store/plans.mjs');
       for (const alert of tokenAlerts) {
         // Set reference price on first check
         if (!alert.referencePrice) {
           alert.referencePrice = priceData.price;
+          await updatePriceAlert(alert.id, { referencePrice: priceData.price });
           continue;
         }
 

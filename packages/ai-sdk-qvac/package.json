@@ -1,0 +1,63 @@
+{
+  "name": "ai-sdk-qvac",
+  "version": "0.1.0",
+  "description": "Vercel AI SDK community provider for Tether QVAC — local-first, on-device LLMs with full tool-calling. No API keys, no cloud round-trips.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "./index.mjs",
+  "exports": {
+    ".": "./index.mjs",
+    "./errors": "./errors.mjs",
+    "./language-model": "./language-model.mjs",
+    "./llm": "./llm.mjs",
+    "./sidecar": "./sidecar/client.mjs"
+  },
+  "files": [
+    "index.mjs",
+    "provider.mjs",
+    "language-model.mjs",
+    "llm.mjs",
+    "errors.mjs",
+    "_logger.mjs",
+    "sidecar/client.mjs",
+    "sidecar/sidecar.cjs",
+    "README.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "ai",
+    "ai-sdk",
+    "vercel-ai",
+    "llm",
+    "tool-calling",
+    "qvac",
+    "tether",
+    "local-first",
+    "on-device",
+    "llamacpp",
+    "private-ai",
+    "sovereign-ai"
+  ],
+  "peerDependencies": {
+    "@ai-sdk/provider": "^2",
+    "@qvac/llm-llamacpp": "^0.19",
+    "bare-runtime": "^1.28",
+    "bare-process": "^4.4",
+    "bare-fs": "^4.5",
+    "bare-os": "^3.9",
+    "bare-path": "^3.0"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/danielAsaboro/aegis.git",
+    "directory": "packages/ai-sdk-qvac"
+  },
+  "homepage": "https://github.com/danielAsaboro/aegis/tree/main/packages/ai-sdk-qvac",
+  "bugs": {
+    "url": "https://github.com/danielAsaboro/aegis/issues"
+  },
+  "author": "Daniel Asaboro <asaborodaniel@gmail.com>"
+}

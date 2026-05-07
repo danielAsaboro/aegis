@@ -16,26 +16,32 @@ import {
 } from './real-setup.mjs';
 
 describe("E2E: Privacy-Aware Trading (Real)", () => {
-  let testEnv, restoreEnv, keypair, mbClient;
+  let testEnv, restoreEnv, keypair, mbClient, suiteSkipReason = null;
   const TEST_DEPOSIT_AMOUNT = BigInt(Math.round(REAL_E2E_CONFIG.TEST_SHIELD_AMOUNT * LAMPORTS_PER_SOL)); // 0.001 SOL in lamports
 
   before(async () => {
     console.log('[E2E PRIVACY] Setting up real privacy test environment...');
-    
-    // Create test environment
-    testEnv = await createRealTestEnvironment();
-    restoreEnv = setupRealTestEnv(testEnv.testDir);
-    
-    // Get real keypair
-    keypair = getKeypair();
-    
-    // Run preflight checks
-    await runPreflightChecks(keypair);
-    
-    // Create real MagicBlock client (connections are established in constructor)
-    mbClient = new MagicBlockClient(keypair);
 
-    console.log('[E2E PRIVACY] Real privacy test environment ready');
+    try {
+      // Create test environment
+      testEnv = await createRealTestEnvironment();
+      restoreEnv = setupRealTestEnv(testEnv.testDir);
+
+      // Get real keypair
+      keypair = getKeypair();
+
+      // Run preflight checks
+      await runPreflightChecks(keypair);
+
+      // Create real MagicBlock client (connections are established in constructor)
+      mbClient = new MagicBlockClient(keypair);
+
+      console.log('[E2E PRIVACY] Real privacy test environment ready');
+    } catch (err) {
+      if (testEnv) testEnv.cleanup();
+      if (restoreEnv) restoreEnv();
+      suiteSkipReason = `real E2E preflight failed: ${err.message.split('\n')[0]}`;
+    }
   });
 
   after(async () => {
@@ -43,7 +49,16 @@ describe("E2E: Privacy-Aware Trading (Real)", () => {
     if (restoreEnv) restoreEnv();
   });
 
-  it("validates privacy policy configuration", async () => {
+  function skipIfSuiteBlocked(t) {
+    if (suiteSkipReason) {
+      t.skip(suiteSkipReason);
+      return true;
+    }
+    return false;
+  }
+
+  it("validates privacy policy configuration", async (t) => {
+    if (skipIfSuiteBlocked(t)) return;
     const privacyConfig = getPrivacyConfig();
     
     assert.ok(privacyConfig, 'Privacy config should exist');
@@ -54,7 +69,8 @@ describe("E2E: Privacy-Aware Trading (Real)", () => {
     console.log(`[E2E PRIVACY] ✅ Privacy config - Mode: ${privacyConfig.mode}, Threshold: $${privacyConfig.thresholdUsd}`);
   });
 
-  it("tests privacy routing decisions for different trade amounts", async () => {
+  it("tests privacy routing decisions for different trade amounts", async (t) => {
+    if (skipIfSuiteBlocked(t)) return;
     // Test small trade (below threshold) - should be public (use tokens not in privacy list)
     const smallTrade = {
       transaction: { from: 'ETH', to: 'BTC', amount: 10 },
@@ -92,7 +108,8 @@ describe("E2E: Privacy-Aware Trading (Real)", () => {
     console.log(`[E2E PRIVACY] ✅ Privacy routing decisions validated`);
   });
 
-  it("performs real MagicBlock shield deposit", async () => {
+  it("performs real MagicBlock shield deposit", async (t) => {
+    if (skipIfSuiteBlocked(t)) return;
     const solMint = getTokenMint('SOL');
     assert.ok(solMint, 'SOL mint should be available');
     
@@ -133,24 +150,24 @@ describe("E2E: Privacy-Aware Trading (Real)", () => {
       assert.equal(finalBalance.toString(), expectedBalance.toString(), 'Balance should increase by deposit amount');
       
       // Record in local shield store
-      setShieldedBalance(keypair.publicKey.toBase58(), solMint.toBase58(), finalBalance);
-      addShieldTransaction({
+      await setShieldedBalance(keypair.publicKey.toBase58(), 'SOL', finalBalance);
+      await addShieldTransaction({
         type: 'deposit',
-        mint: solMint.toBase58(),
+        wallet: keypair.publicKey.toBase58(),
+        token: 'SOL',
         amount: TEST_DEPOSIT_AMOUNT.toString(),
-        txHash,
-        timestamp: Date.now()
+        signature: txHash,
       });
       
       console.log(`[E2E PRIVACY] ✅ Shield balance verified - New: ${finalBalance.toString()} lamports`);
       
     } catch (err) {
-      // wSOL delegation requires an existing wSOL token account — skip gracefully
-      console.log(`[E2E PRIVACY] Deposit test skipped (token account setup required): ${err.message.split('\n')[0]}`);
+      t.skip(`MagicBlock deposit preconditions not met: ${err.message.split('\n')[0]}`);
     }
   });
 
-  it("tests real shielded balance queries", async () => {
+  it("tests real shielded balance queries", async (t) => {
+    if (skipIfSuiteBlocked(t)) return;
     const solMint = getTokenMint('SOL');
     const usdcMint = getTokenMint('USDC');
     
@@ -161,7 +178,7 @@ describe("E2E: Privacy-Aware Trading (Real)", () => {
       console.log(`[E2E PRIVACY] Shielded SOL: ${solBalance.toString()} lamports`);
       
       // Store locally for comparison
-      setShieldedBalance(keypair.publicKey.toBase58(), solMint.toBase58(), solBalance);
+      await setShieldedBalance(keypair.publicKey.toBase58(), 'SOL', solBalance);
     } catch (err) {
       console.log(`[E2E PRIVACY] SOL balance query: ${err.message}`);
     }
@@ -178,7 +195,8 @@ describe("E2E: Privacy-Aware Trading (Real)", () => {
     console.log(`[E2E PRIVACY] ✅ Balance queries completed`);
   });
 
-  it("validates real trade proposal with privacy routing", async () => {
+  it("validates real trade proposal with privacy routing", async (t) => {
+    if (skipIfSuiteBlocked(t)) return;
     // Create a real trade proposal that should use privacy
     const proposal = createTradeProposal({
       strategyId: 'privacy-test',
@@ -216,10 +234,10 @@ describe("E2E: Privacy-Aware Trading (Real)", () => {
       timestamp: Date.now()
     };
     
-    addExecution(execution);
+    await addExecution(execution);
     
     // Verify execution was stored
-    const executions = getExecutions();
+    const executions = await getExecutions();
     const storedExecution = executions.find(e => e.id === execution.id);
     assert.ok(storedExecution, 'Execution should be stored');
     assert.equal(storedExecution.usePrivate, true, 'Execution should record privacy decision');
@@ -227,46 +245,19 @@ describe("E2E: Privacy-Aware Trading (Real)", () => {
     console.log(`[E2E PRIVACY] ✅ Trade proposal privacy routing validated`);
   });
 
-  it("tests shield transaction history tracking", async () => {
-    // Add some test transactions to history
-    const walletAddr = keypair.publicKey.toBase58();
-    const solMintStr = getTokenMint('SOL').toBase58();
-    const transactions = [
-      {
-        wallet: walletAddr,
-        token: 'SOL',
-        type: 'deposit',
-        mint: solMintStr,
-        amount: TEST_DEPOSIT_AMOUNT.toString(),
-        txHash: 'test_tx_1',
-        timestamp: Date.now() - 60000
-      },
-      {
-        wallet: walletAddr,
-        token: 'SOL',
-        type: 'withdraw',
-        mint: solMintStr,
-        amount: (TEST_DEPOSIT_AMOUNT / BigInt(2)).toString(),
-        txHash: 'test_tx_2',
-        timestamp: Date.now()
-      }
-    ];
-    
-    transactions.forEach(tx => addShieldTransaction(tx));
-    
-    // Test transaction retrieval (this would use real MagicBlock API in full implementation)
-    try {
-      const history = await mbClient.getTransactionHistory({ limit: 10 });
-      assert.ok(Array.isArray(history), 'Transaction history should be array');
-      console.log(`[E2E PRIVACY] Transaction history: ${history.length} entries`);
-    } catch (err) {
-      console.log(`[E2E PRIVACY] Transaction history: ${err.message} (method may not be implemented yet)`);
-    }
+  it("tests shield transaction history tracking", async (t) => {
+    if (skipIfSuiteBlocked(t)) return;
+    const history = await mbClient.getTransactionHistory({ limit: 10 });
+    assert.ok(Array.isArray(history), 'Transaction history should be array');
+    assert.ok(history.length > 0, 'Transaction history should not be empty for an active wallet');
+    assert.ok(history.every((entry) => typeof entry.signature === 'string' && entry.signature.length > 0), 'Every history entry should include a signature');
+    console.log(`[E2E PRIVACY] Transaction history: ${history.length} entries`);
     
     console.log(`[E2E PRIVACY] ✅ Transaction history tracking validated`);
   });
 
-  it("validates privacy mode configurations", async () => {
+  it("validates privacy mode configurations", async (t) => {
+    if (skipIfSuiteBlocked(t)) return;
     // Test 'off' mode — pass config directly (env is frozen by envalid at import time)
     const offConfig = { mode: 'off', thresholdUsd: 100, privateTokens: [] };
     assert.equal(offConfig.mode, 'off', 'Privacy should be off');
@@ -296,7 +287,8 @@ describe("E2E: Privacy-Aware Trading (Real)", () => {
     console.log(`[E2E PRIVACY] ✅ Privacy mode configurations validated`);
   });
 
-  it("tests real MagicBlock private transfer capabilities", async () => {
+  it("tests real MagicBlock private transfer capabilities", async (t) => {
+    if (skipIfSuiteBlocked(t)) return;
     const solMint = getTokenMint('SOL');
     
     // Check if we have shielded balance for testing
@@ -304,24 +296,18 @@ describe("E2E: Privacy-Aware Trading (Real)", () => {
     try {
       balance = await mbClient.getShieldedBalance(solMint);
     } catch (err) {
-      console.log(`[E2E PRIVACY] Balance check for transfer: ${err.message}`);
-      return; // Skip if no balance
+      t.skip(`Shield balance unavailable for transfer test: ${err.message}`);
     }
     
     if (balance === BigInt(0)) {
-      console.log(`[E2E PRIVACY] No shielded balance for transfer test`);
-      return;
+      t.skip('No shielded balance available for transfer test');
     }
     
     // Test private transfer (this simulates internal shield operations)
     const transferAmount = balance > BigInt(1000) ? BigInt(1000) : balance / BigInt(2);
     
-    try {
-      const txHash = await mbClient.privateTransfer(solMint, solMint, transferAmount);
-      assert.ok(txHash, 'Private transfer should return transaction hash');
-      console.log(`[E2E PRIVACY] ✅ Private transfer successful - TX: ${txHash.slice(0, 16)}...`);
-    } catch (err) {
-      console.log(`[E2E PRIVACY] Private transfer: ${err.message} (may not be fully implemented)`);
-    }
+    const txHash = await mbClient.privateTransfer(solMint, keypair.publicKey, transferAmount);
+    assert.ok(txHash, 'Private transfer should return transaction hash');
+    console.log(`[E2E PRIVACY] ✅ Private transfer successful - TX: ${txHash.slice(0, 16)}...`);
   });
 });

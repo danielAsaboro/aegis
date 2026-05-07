@@ -9,8 +9,8 @@
 import { createRebalanceTarget } from '../../core/types.mjs';
 import { setRebalanceTarget, getRebalanceTargets } from '../../store/plans.mjs';
 import { getPortfolioAllocations } from '../../utils/zerion-api.mjs';
-import { getEvmAddress, getSolAddress } from '../../../cli/lib/wallet/keystore.js';
-import { isSolana } from '../../../cli/lib/chain/registry.js';
+import { getEvmAddress, getSolAddress } from '../../../utils/wallet/keystore.js';
+import { isSolana } from '../../../utils/chain/registry.js';
 import { getDefaultPolicies } from '../../policies/engine.mjs';
 import { formatRebalanceStatus } from '../formatters.mjs';
 
@@ -52,7 +52,7 @@ export function registerRebalance(bot, config) {
         threshold: 5,
         policies: getDefaultPolicies('rebalancer'),
       });
-      setRebalanceTarget(target);
+      await setRebalanceTarget(target);
       await ctx.replyWithMarkdown(
         `✅ Rebalance target set for *${chain}*\n\n` +
         targets.map(t => `• ${t.token}: ${t.weight}%`).join('\n') +
@@ -62,7 +62,7 @@ export function registerRebalance(bot, config) {
     }
 
     if (subcommand === 'status' || !subcommand) {
-      const targets = getRebalanceTargets(ctx.chat.id);
+      const targets = await getRebalanceTargets(ctx.chat.id);
       if (targets.length === 0) {
         await ctx.reply('No rebalance targets set. Use: /rebalance set SOL:50 ETH:30 USDC:20');
         return;

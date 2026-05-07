@@ -36,15 +36,15 @@ export function stopWhaleMonitor() {
 }
 
 async function checkWhaleActivity() {
-  const watches = getWhaleWatches();
+  const watches = await getWhaleWatches();
   if (watches.length === 0) return;
 
   for (const watch of watches) {
     const monitorId = `whale:${watch.address}`;
     try {
       const txs = await getWalletTransactions(watch.address, { limit: 5 });
-      const lastChecked = getLastChecked(monitorId);
-      setLastChecked(monitorId);
+      const lastChecked = await getLastChecked(monitorId);
+      await setLastChecked(monitorId);
 
       for (const tx of txs) {
         // Skip if we've already seen this transaction

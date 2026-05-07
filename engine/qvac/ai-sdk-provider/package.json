@@ -1,0 +1,34 @@
+{
+  "name": "ai-sdk-qvac",
+  "version": "0.1.0",
+  "description": "Vercel AI SDK community provider for Tether QVAC — local-first, on-device LLMs with full tool-calling support.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "./index.mjs",
+  "exports": {
+    ".": "./index.mjs"
+  },
+  "keywords": [
+    "ai",
+    "ai-sdk",
+    "vercel-ai",
+    "llm",
+    "qvac",
+    "tether",
+    "local-first",
+    "on-device",
+    "llamacpp"
+  ],
+  "peerDependencies": {
+    "@ai-sdk/provider": "^2",
+    "@qvac/llm-llamacpp": "^0.19",
+    "bare-runtime": "^1.28",
+    "bare-process": "^4.4",
+    "bare-fs": "^4.5",
+    "bare-os": "^3.9",
+    "bare-path": "^3.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

@@ -32,7 +32,7 @@ export function registerPropose(bot, config) {
       requiredVotes: config.requiredVotes || 3,
     });
 
-    addProposal(proposal);
+    await addProposal(proposal);
 
     await ctx.replyWithMarkdown(
       formatProposal(proposal),

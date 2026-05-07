@@ -10,7 +10,7 @@ export function registerHistory(bot) {
     const args = ctx.message.text.split(' ').slice(1);
     const limit = parseInt(args[0]) || 10;
 
-    const executions = getRecentExecutions(Math.min(limit, 25));
+    const executions = await getRecentExecutions(Math.min(limit, 25));
     await ctx.replyWithMarkdown(formatHistory(executions));
   });
 }

@@ -11,7 +11,7 @@ import { SignalType } from '../../core/types.mjs';
 export function registerVote(bot, config) {
   // /vote — list active proposals
   bot.command('vote', async (ctx) => {
-    const proposals = getActiveProposals(ctx.chat.id);
+    const proposals = await getActiveProposals(ctx.chat.id);
     if (proposals.length === 0) {
       await ctx.reply('No active proposals. Create one with /propose');
       return;
@@ -29,13 +29,13 @@ export function registerVote(bot, config) {
     const voterId = String(ctx.from.id);
     const voterName = ctx.from.first_name || ctx.from.username || 'Unknown';
 
-    const proposal = getProposal(proposalId);
+    const proposal = await getProposal(proposalId);
     if (!proposal) return ctx.answerCbQuery('Proposal not found');
     if (proposal.status !== 'voting') return ctx.answerCbQuery('Voting is closed');
 
     // Check expiry
     if (new Date(proposal.expiresAt) < new Date()) {
-      updateProposal(proposalId, { status: 'expired' });
+      await updateProposal(proposalId, { status: 'expired' });
       await ctx.answerCbQuery('Proposal has expired');
       await ctx.editMessageText(`Proposal \`${proposalId}\` — *Expired*`, { parse_mode: 'Markdown' });
       return;
@@ -43,10 +43,10 @@ export function registerVote(bot, config) {
 
     // Record vote (one vote per user, last vote wins)
     const votes = { ...proposal.votes, [voterId]: action };
-    updateProposal(proposalId, { votes });
+    await updateProposal(proposalId, { votes });
 
     // Update message
-    const updated = getProposal(proposalId);
+    const updated = await getProposal(proposalId);
     const approvals = Object.values(updated.votes).filter(v => v === 'approve').length;
     const rejections = Object.values(updated.votes).filter(v => v === 'reject').length;
 
@@ -54,9 +54,10 @@ export function registerVote(bot, config) {
 
     // Check if consensus reached
     if (approvals >= updated.requiredVotes) {
-      updateProposal(proposalId, { status: 'approved' });
+      await updateProposal(proposalId, { status: 'approved' });
+      const finalProposal = await getProposal(proposalId);
       await ctx.editMessageText(
-        formatProposal(getProposal(proposalId)) + '\n\n✅ *CONSENSUS REACHED — Executing...*',
+        formatProposal(finalProposal) + '\n\n✅ *CONSENSUS REACHED — Executing...*',
         { parse_mode: 'Markdown' }
       );
 

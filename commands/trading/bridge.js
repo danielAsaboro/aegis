@@ -5,6 +5,18 @@ import { print, printError } from "../../utils/common/output.js";
 import { getConfigValue } from "../../utils/config.js";
 import { validateChain } from "../../utils/common/validate.js";
 
+async function loadAegis() {
+  const [engine, types] = await Promise.all([
+    import("../../engine/policies/engine.mjs"),
+    import("../../engine/core/types.mjs"),
+  ]);
+  return {
+    runPolicies: engine.runPolicies,
+    getDefaultPolicies: engine.getDefaultPolicies,
+    createTradeProposal: types.createTradeProposal,
+  };
+}
+
 export default async function bridge(args, flags) {
   const [token, targetChain, amount] = args;
 
@@ -50,6 +62,30 @@ export default async function bridge(args, flags) {
       });
       process.exit(1);
     }
+
+    // AEGIS policy gate — every bridge tx must pass scoped policies.
+    const { runPolicies, getDefaultPolicies, createTradeProposal } = await loadAegis();
+    const proposal = createTradeProposal({
+      strategyId: "cli-bridge",
+      strategyType: "manual",
+      fromToken: token.toUpperCase(),
+      toToken: toToken.toUpperCase(),
+      amount: parseFloat(amount),
+      chain: fromChain,
+      reason: `CLI bridge ${fromChain}→${targetChain}`,
+    });
+    const policyConfig = {
+      "spend-limit": { perTick: 5000, daily: 20000 },
+      ...getDefaultPolicies("manual"),
+    };
+    const policyResult = await runPolicies(proposal, policyConfig);
+    if (!policyResult.approved) {
+      printError("policy_denied", `Bridge blocked by policy: ${policyResult.deniedBy}`, {
+        reason: policyResult.reason,
+      });
+      process.exit(1);
+    }
+    proposal.policyResult = policyResult;
 
     const isCrossToken = token.toUpperCase() !== toToken.toUpperCase();
     const quoteSummary = {

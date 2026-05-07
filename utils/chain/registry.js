@@ -67,6 +67,24 @@ export function getSolanaRpcUrl() {
   return process.env.SOLANA_RPC_URL || SOLANA_CHAIN.rpcUrl;
 }
 
+/**
+ * EVM RPC URL override for a given Zerion chain ID. Lets us point a chain
+ * at a local Anvil fork (for end-to-end Zerion swap testing without
+ * burning real funds) by setting either:
+ *   - <CHAIN>_RPC_URL  (e.g. BASE_RPC_URL=http://127.0.0.1:8545)
+ *   - EVM_RPC_URL_OVERRIDE  (applies to every EVM chain — useful when
+ *     the agent picks the chain dynamically and you want one anvil for all)
+ * Returns undefined when no override is configured; callers fall back to
+ * viem's bundled public RPC for that chain.
+ */
+export function getEvmRpcUrl(zerionChainId) {
+  const all = process.env.EVM_RPC_URL_OVERRIDE;
+  if (all) return all;
+  if (!zerionChainId) return undefined;
+  const key = zerionChainId.toUpperCase().replace(/-/g, '_') + '_RPC_URL';
+  return process.env[key] || undefined;
+}
+
 export function getChain(zerionId) {
   if (zerionId === "solana") return SOLANA_CHAIN;
   return CHAIN_MAP.get(zerionId) || null;

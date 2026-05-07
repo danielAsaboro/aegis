@@ -84,6 +84,9 @@ export function registerTrade(bot, config) {
       return;
     }
 
+    // Attach approved policyResult — the executor refuses ungated trades.
+    pending.proposal.policyResult = policyResult;
+
     // Execute with privacy flag
     const result = await executeTrade(pending.proposal, {
       walletName: config.walletName,

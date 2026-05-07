@@ -11,12 +11,8 @@
 
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { mkdtempSync } from 'node:fs';
-import { Keypair, Connection, LAMPORTS_PER_SOL } from '@solana/web3.js';
-import { initStateStore } from '../../engine/store/state.mjs';
-import { initPlansStore } from '../../engine/store/plans.mjs';
-import { initExecutionsStore } from '../../engine/store/executions.mjs';
-import { initShieldStore } from '../../engine/store/shield.mjs';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { Connection, LAMPORTS_PER_SOL } from '@solana/web3.js';
 
 // Real test environment configuration
 export const REAL_E2E_CONFIG = {
@@ -43,20 +39,14 @@ export const REAL_E2E_CONFIG = {
  */
 export async function createRealTestEnvironment() {
   const testDir = mkdtempSync(join(tmpdir(), 'aegis-real-e2e-'));
-  
-  // Initialize stores
-  initStateStore(testDir);
-  initPlansStore(testDir);
-  initExecutionsStore(testDir);
-  initShieldStore(testDir);
-  
+
   console.log(`[REAL E2E] Test environment created: ${testDir}`);
   
   return {
     testDir,
     cleanup: () => {
       try {
-        require('fs').rmSync(testDir, { recursive: true, force: true });
+        rmSync(testDir, { recursive: true, force: true });
         console.log(`[REAL E2E] Test environment cleaned up`);
       } catch (err) {
         console.warn('[REAL E2E] Cleanup failed:', err.message);
@@ -70,6 +60,10 @@ export async function createRealTestEnvironment() {
  */
 export function setupRealTestEnv(testDir) {
   const originalEnv = { ...process.env };
+  const isPlaceholder = (value) =>
+    !value ||
+    /^(changeme|your_|example|placeholder)$/i.test(String(value).trim()) ||
+    /^<.*>$/.test(String(value).trim());
   
   // Validate required environment variables
   const required = [
@@ -78,9 +72,9 @@ export function setupRealTestEnv(testDir) {
     'SOLANA_PRIVATE_KEY'
   ];
   
-  const missing = required.filter(key => !process.env[key]);
+  const missing = required.filter((key) => isPlaceholder(process.env[key]));
   if (missing.length > 0) {
-    throw new Error(`Missing required environment variables: ${missing.join(', ')}`);
+    throw new Error(`Missing real environment variables: ${missing.join(', ')}`);
   }
   
   // Set test-specific overrides

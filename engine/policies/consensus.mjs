@@ -7,7 +7,7 @@
 
 import { getProposal } from '../store/plans.mjs';
 
-export function check(ctx) {
+export async function check(ctx) {
   const config = ctx.policy_config || {};
   const proposal = ctx.proposal || {};
 
@@ -21,7 +21,7 @@ export function check(ctx) {
     return { allow: false, reason: 'No proposal ID found for group trade' };
   }
 
-  const groupProposal = getProposal(proposalId);
+  const groupProposal = await getProposal(proposalId);
   if (!groupProposal) {
     return { allow: false, reason: `Proposal ${proposalId} not found` };
   }

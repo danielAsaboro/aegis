@@ -21,7 +21,7 @@ export class GroupConsensusStrategy extends BaseStrategy {
 
   async evaluate(signal) {
     const { proposalId } = signal;
-    const proposal = getProposal(proposalId);
+    const proposal = await getProposal(proposalId);
 
     if (!proposal || proposal.status !== 'voting') return null;
 

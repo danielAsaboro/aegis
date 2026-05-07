@@ -1,202 +1,150 @@
 /**
- * Shielded Balance Store — tracks MagicBlock private balances locally.
+ * Shielded Balance store — MagicBlock private balances.
  *
- * Balances are synced from chain on demand and cached locally for quick access.
- * JSON file storage at DATA_DIR/shield.json
+ * Backed by Prisma SQLite. All exports are async.
  */
 
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { getPrisma, closeDb, initDb, pushDbSchema } from '../db/index.mjs';
 import { storeLog } from '../core/logger.mjs';
+import { join } from 'node:path';
 
-let DATA_DIR;
-let SHIELD_PATH;
-let _cache = null;
+const HISTORY_KEEP = 100;
 
-/**
- * Initialize the shield store.
- */
-export function initShieldStore(dataDir) {
-  DATA_DIR = dataDir;
-  SHIELD_PATH = join(DATA_DIR, 'shield.json');
-  mkdirSync(DATA_DIR, { recursive: true });
-  _cache = null;
+// ── Balances ───────────────────────────────────────────────────────────────
+
+export async function getShieldBalance(wallet, token) {
+  const row = await getPrisma().shieldBalance.findUnique({
+    where: { wallet_token: { wallet, token: token.toUpperCase() } },
+  });
+  return row ? BigInt(row.balance) : 0n;
 }
 
-function load() {
-  if (_cache) return _cache;
-  if (!existsSync(SHIELD_PATH)) {
-    _cache = { balances: {}, history: [] };
-    return _cache;
-  }
-  try {
-    _cache = JSON.parse(readFileSync(SHIELD_PATH, 'utf-8'));
-    return _cache;
-  } catch (err) {
-    storeLog.warn({ err }, 'Failed to read shield store, starting fresh');
-    _cache = { balances: {}, history: [] };
-    return _cache;
-  }
+export async function getShieldBalances(wallet) {
+  const rows = await getPrisma().shieldBalance.findMany({ where: { wallet } });
+  const out = {};
+  for (const r of rows) out[r.token] = BigInt(r.balance);
+  return out;
 }
 
-function save() {
-  writeFileSync(SHIELD_PATH, JSON.stringify(_cache, null, 2) + '\n');
-}
-
-// ─── Balance Tracking ────────────────────────────────────────────────────────
-
-/**
- * Get shielded balance for a wallet + token.
- *
- * @param {string} wallet - Wallet public key
- * @param {string} token - Token symbol (SOL, USDC, etc.)
- * @returns {bigint} Balance in raw units (0 if not found)
- */
-export function getShieldBalance(wallet, token) {
-  const data = load();
-  const key = `${wallet}:${token.toUpperCase()}`;
-  const raw = data.balances[key];
-  return raw ? BigInt(raw) : 0n;
-}
-
-/**
- * Get all shielded balances for a wallet.
- *
- * @param {string} wallet - Wallet public key
- * @returns {Record<string, bigint>} Map of token -> balance
- */
-export function getShieldBalances(wallet) {
-  const data = load();
-  const prefix = `${wallet}:`;
-  const result = {};
-
-  for (const [key, value] of Object.entries(data.balances)) {
-    if (key.startsWith(prefix)) {
-      const token = key.slice(prefix.length);
-      result[token] = BigInt(value);
-    }
-  }
-
-  return result;
-}
-
-/**
- * Update shielded balance for a wallet + token.
- *
- * @param {string} wallet - Wallet public key
- * @param {string} token - Token symbol
- * @param {bigint|string|number} balance - New balance in raw units
- */
-export function updateShieldBalance(wallet, token, balance) {
-  const data = load();
-  const key = `${wallet}:${token.toUpperCase()}`;
+export async function updateShieldBalance(wallet, token, balance) {
   const balanceStr = typeof balance === 'bigint' ? balance.toString() : String(balance);
-
-  const oldBalance = data.balances[key];
-  data.balances[key] = balanceStr;
-  save();
-
-  storeLog.debug({ wallet: wallet.slice(0, 8), token, balance: balanceStr }, 'Shield balance updated');
+  const T = token.toUpperCase();
+  await getPrisma().shieldBalance.upsert({
+    where: { wallet_token: { wallet, token: T } },
+    update: { balance: balanceStr },
+    create: { wallet, token: T, balance: balanceStr },
+  });
+  storeLog.debug({ wallet: wallet.slice(0, 8), token: T, balance: balanceStr }, 'Shield balance updated');
   return BigInt(balanceStr);
 }
 
-/**
- * Clear shielded balance (set to 0).
- */
-export function clearShieldBalance(wallet, token) {
+export async function clearShieldBalance(wallet, token) {
   return updateShieldBalance(wallet, token, 0n);
 }
 
-// ─── Transaction History ─────────────────────────────────────────────────────
+// ── Transaction History ────────────────────────────────────────────────────
 
-/**
- * Record a shield transaction (deposit, withdraw, transfer).
- *
- * @param {object} tx - Transaction details
- * @param {string} tx.type - 'deposit' | 'withdraw' | 'transfer'
- * @param {string} tx.wallet - Wallet public key
- * @param {string} tx.token - Token symbol
- * @param {string|number} tx.amount - Amount in raw units
- * @param {string} [tx.signature] - Transaction signature
- * @param {string} [tx.recipient] - Recipient for transfers
- */
-export function recordShieldTransaction(tx) {
-  const data = load();
+export async function recordShieldTransaction(tx) {
+  const prisma = getPrisma();
+  const T = tx.token.toUpperCase();
+  const created = await prisma.shieldTransaction.create({
+    data: {
+      type: tx.type,
+      wallet: tx.wallet,
+      token: T,
+      amount: String(tx.amount),
+      signature: tx.signature || '',
+      recipient: tx.recipient || null,
+    },
+  });
 
-  const entry = {
-    id: `shield-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-    type: tx.type,
-    wallet: tx.wallet,
-    token: tx.token.toUpperCase(),
-    amount: String(tx.amount),
-    signature: tx.signature || null,
-    recipient: tx.recipient || null,
-    timestamp: new Date().toISOString(),
-  };
-
-  data.history.push(entry);
-
-  // Keep last 100 transactions
-  if (data.history.length > 100) {
-    data.history = data.history.slice(-100);
+  // Trim history per wallet to last HISTORY_KEEP rows
+  const total = await prisma.shieldTransaction.count({ where: { wallet: tx.wallet } });
+  if (total > HISTORY_KEEP) {
+    const excess = total - HISTORY_KEEP;
+    const oldest = await prisma.shieldTransaction.findMany({
+      where: { wallet: tx.wallet },
+      orderBy: { createdAt: 'asc' },
+      take: excess,
+      select: { id: true },
+    });
+    if (oldest.length > 0) {
+      await prisma.shieldTransaction.deleteMany({
+        where: { id: { in: oldest.map(o => o.id) } },
+      });
+    }
   }
 
-  save();
+  const entry = {
+    id: `shield-${created.id}`,
+    type: created.type,
+    wallet: created.wallet,
+    token: created.token,
+    amount: created.amount,
+    signature: created.signature,
+    recipient: created.recipient,
+    timestamp: created.createdAt.toISOString(),
+  };
   storeLog.info({ tx: entry.id, type: entry.type, token: entry.token }, 'Shield transaction recorded');
   return entry;
 }
 
-/**
- * Get shield transaction history for a wallet.
- *
- * @param {string} wallet - Wallet public key
- * @param {number} [limit=20] - Max transactions to return
- * @returns {Array} Transaction history, newest first
- */
-export function getShieldHistory(wallet, limit = 20) {
-  const data = load();
-  return data.history
-    .filter(tx => tx.wallet === wallet)
-    .slice(-limit)
-    .reverse();
+export async function getShieldHistory(wallet, limit = 20) {
+  const rows = await getPrisma().shieldTransaction.findMany({
+    where: { wallet },
+    orderBy: { createdAt: 'desc' },
+    take: limit,
+  });
+  return rows.map(r => ({
+    id: `shield-${r.id}`,
+    type: r.type,
+    wallet: r.wallet,
+    token: r.token,
+    amount: r.amount,
+    signature: r.signature,
+    recipient: r.recipient,
+    timestamp: r.createdAt.toISOString(),
+  }));
 }
 
-/**
- * Get all shield transaction history.
- *
- * @param {number} [limit=50] - Max transactions to return
- * @returns {Array} Transaction history, newest first
- */
-export function getAllShieldHistory(limit = 50) {
-  const data = load();
-  return data.history.slice(-limit).reverse();
+export async function getAllShieldHistory(limit = 50) {
+  const rows = await getPrisma().shieldTransaction.findMany({
+    orderBy: { createdAt: 'desc' },
+    take: limit,
+  });
+  return rows.map(r => ({
+    id: `shield-${r.id}`,
+    type: r.type,
+    wallet: r.wallet,
+    token: r.token,
+    amount: r.amount,
+    signature: r.signature,
+    recipient: r.recipient,
+    timestamp: r.createdAt.toISOString(),
+  }));
 }
 
-// ─── Utility ─────────────────────────────────────────────────────────────────
-
-/**
- * Invalidate the cache (force reload on next access).
- */
-export function invalidateShieldCache() {
-  _cache = null;
-}
-
-/**
- * Get summary of all shielded balances across all wallets.
- */
-export function getShieldSummary() {
-  const data = load();
+export async function getShieldSummary() {
+  const rows = await getPrisma().shieldBalance.findMany();
   const byToken = {};
-
-  for (const [key, value] of Object.entries(data.balances)) {
-    const [, token] = key.split(':');
-    if (!byToken[token]) byToken[token] = 0n;
-    byToken[token] += BigInt(value);
+  const wallets = new Set();
+  for (const r of rows) {
+    wallets.add(r.wallet);
+    if (!byToken[r.token]) byToken[r.token] = 0n;
+    byToken[r.token] += BigInt(r.balance);
   }
-
+  const txCount = await getPrisma().shieldTransaction.count();
   return {
-    totalWallets: new Set(Object.keys(data.balances).map(k => k.split(':')[0])).size,
+    totalWallets: wallets.size,
     byToken,
-    transactionCount: data.history.length,
+    transactionCount: txCount,
   };
+}
+
+export async function initShieldStore(testDir) {
+  process.env.DATA_DIR = testDir;
+  process.env.AEGIS_DATABASE_URL = `file:${join(testDir, 'aegis.db')}`;
+  pushDbSchema();
+  await closeDb();
+  await initDb();
 }

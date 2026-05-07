@@ -1,6 +1,70 @@
+# ── Dependencies ─────────────────────────────────────────────────────────────
 node_modules/
+
+# ── Environment / secrets ─────────────────────────────────────────────────────
 .env
 .env.local
+.env.*.local
+.env.development
+.env.production
+.env.test
+*.pem
+*.key
+*.p12
+keys/
+
+# ── Rust / TUI build artifacts ────────────────────────────────────────────────
+tui/target/
+
+# ── Next.js (aegis/web) ───────────────────────────────────────────────────────
+.next/
+out/
+next-env.d.ts
+
+# ── Generic build outputs ─────────────────────────────────────────────────────
+dist/
+build/
+*.tsbuildinfo
+
+# ── Local AI / QVAC model files ───────────────────────────────────────────────
+*.gguf
+*.ggml
+*.bin
+
+# ── Test & coverage ───────────────────────────────────────────────────────────
+coverage/
+.nyc_output/
+*.lcov
+
+# ── Database ──────────────────────────────────────────────────────────────────
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+prisma/migrations/
+
+# ── Logs ─────────────────────────────────────────────────────────────────────
+*.log
+logs/
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ── OS ────────────────────────────────────────────────────────────────────────
 .DS_Store
+Thumbs.db
+
+# ── Editors ───────────────────────────────────────────────────────────────────
 .idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# ── Misc project artifacts ────────────────────────────────────────────────────
 *.bak
+chat/*.stub
+chat/*.json
+.zerion/
+tmp/
+temp/

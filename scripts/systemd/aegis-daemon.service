@@ -1,0 +1,29 @@
+; AEGIS daemon — systemd unit template.
+;
+; Install (user-level):
+;   mkdir -p ~/.config/systemd/user
+;   cp scripts/systemd/aegis-daemon.service ~/.config/systemd/user/
+;   systemctl --user daemon-reload
+;   systemctl --user enable --now aegis-daemon.service
+;
+; View logs:
+;   journalctl --user -u aegis-daemon.service -f
+
+[Unit]
+Description=AEGIS Autonomous Onchain Agent Daemon
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/aegis daemon start --foreground
+Restart=on-failure
+RestartSec=5
+KillSignal=SIGTERM
+TimeoutStopSec=15
+
+; Environment file is optional — customize with API keys / wallet name
+EnvironmentFile=-%h/.config/aegis/daemon.env
+
+[Install]
+WantedBy=default.target

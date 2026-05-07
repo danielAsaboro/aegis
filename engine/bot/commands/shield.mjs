@@ -15,12 +15,12 @@ import {
   getAllShieldBalances,
 } from '../../execution/private-executor.mjs';
 import {
-  getShieldBalances,
   getShieldHistory,
   recordShieldTransaction,
 } from '../../store/shield.mjs';
 import { getPrivacyConfig } from '../../policies/privacy.mjs';
-import { getKeypair, hasKeypair } from '../../lib/keypair.mjs';
+import { getKeypair } from '../../lib/keypair.mjs';
+import { getTokenDecimals } from '../../lib/magicblock/client.mjs';
 import {
   formatShieldBalances,
   formatShieldDeposit,
@@ -67,13 +67,14 @@ export function registerShield(bot, config) {
 
       try {
         const { signature, balance } = await depositToShield(keypair, token, amount);
+        const decimals = getTokenDecimals(token);
 
         // Record transaction
-        recordShieldTransaction({
+        await recordShieldTransaction({
           type: 'deposit',
           wallet: keypair.publicKey.toBase58(),
           token,
-          amount: (BigInt(Math.round(amount * 10 ** 6))).toString(), // Approximate
+          amount: BigInt(Math.round(amount * 10 ** decimals)).toString(),
           signature,
         });
 
@@ -107,12 +108,13 @@ export function registerShield(bot, config) {
 
       try {
         const { signature, balance } = await withdrawFromShield(keypair, token, amount);
+        const decimals = getTokenDecimals(token);
 
-        recordShieldTransaction({
+        await recordShieldTransaction({
           type: 'withdraw',
           wallet: keypair.publicKey.toBase58(),
           token,
-          amount: (BigInt(Math.round(amount * 10 ** 6))).toString(),
+          amount: BigInt(Math.round(amount * 10 ** decimals)).toString(),
           signature,
         });
 
@@ -127,7 +129,7 @@ export function registerShield(bot, config) {
     // /shield history
     if (subcommand === 'history') {
       const wallet = keypair?.publicKey?.toBase58();
-      const history = wallet ? getShieldHistory(wallet) : [];
+      const history = wallet ? await getShieldHistory(wallet) : [];
       await ctx.replyWithMarkdown(formatShieldHistory(history));
       return;
     }
@@ -137,8 +139,12 @@ export function registerShield(bot, config) {
       const newMode = args[1]?.toLowerCase();
 
       if (newMode && ['off', 'on', 'auto'].includes(newMode)) {
-        // Would need to persist settings - for now just show current
-        await ctx.reply(`Privacy mode would be set to: ${newMode}\n(Settings persistence coming soon)`);
+        const current = getPrivacyConfig();
+        await ctx.reply(
+          `Privacy settings are currently env-driven and cannot be changed at runtime.\n` +
+          `Requested: ${newMode}\n` +
+          `Current mode: ${current.mode}`
+        );
         return;
       }
 

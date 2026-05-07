@@ -1,0 +1,23 @@
+[
+  { "query": "ok so my buddy just sent me 0.5 SOL on phantom and i want to convert maybe like a third of it into USDC because i'm gonna pay rent friday — can you do that on solana mainnet?", "should_trigger": true },
+  { "query": "yeah do the usual buy please, you know what i mean — into SOL, on solana", "should_trigger": true },
+  { "query": "set up a recurring DCA into SOL every tuesday around lunchtime, $25 each time, from my USDC stack", "should_trigger": true },
+  { "query": "park 200 USDC in private mode rn, i don't want this hop showing on my public address before the merch release", "should_trigger": true },
+  { "query": "show me trades I've done that look like the one I did last tuesday for SOL — wanna repeat it but maybe smaller", "should_trigger": true },
+  { "query": "rebalance my portfolio to 60% SOL 30% USDC 10% JUP on solana, threshold like 5%", "should_trigger": true },
+  { "query": "remember that I prefer USDC for stable holdings, never USDT, and my default DCA size is 25 bucks", "should_trigger": true },
+  { "query": "withdraw all my private SOL balance back to the public wallet, pls", "should_trigger": true },
+  { "query": "get me a quote first then if it looks fine swap 0.05 sol → usdc, slippage 1%", "should_trigger": true },
+  { "query": "set a price alert: if SOL drops 8% buy $50 worth automatically on solana", "should_trigger": true },
+
+  { "query": "what's the price of SOL right now?", "should_trigger": false },
+  { "query": "show me my portfolio total in USD", "should_trigger": false },
+  { "query": "explain how the policy engine works in AEGIS — i'm reading the readme and want a deeper understanding before i set anything up", "should_trigger": false },
+  { "query": "what models can i switch the agent to? list them", "should_trigger": false },
+  { "query": "is there a reason my whisper model isn't loading? error says QvacUnavailableError", "should_trigger": false },
+  { "query": "summarize the top 5 things AEGIS can do, in two sentences", "should_trigger": false },
+  { "query": "what does the slippage parameter actually mean? how is it different from price impact?", "should_trigger": false },
+  { "query": "show me the tx history for my wallet on solana — last 20 tx", "should_trigger": false },
+  { "query": "how do i back up my keystore? i'm switching laptops and don't want to lose my seed phrase", "should_trigger": false },
+  { "query": "what privacy guarantees does magicblock give me vs just doing a normal swap on jupiter?", "should_trigger": false }
+]

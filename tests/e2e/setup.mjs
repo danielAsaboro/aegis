@@ -11,12 +11,8 @@
 
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { Keypair } from '@solana/web3.js';
-import { initStateStore } from '../../engine/store/state.mjs';
-import { initPlansStore } from '../../engine/store/plans.mjs';
-import { initExecutionsStore } from '../../engine/store/executions.mjs';
-import { initShieldStore } from '../../engine/store/shield.mjs';
 
 // Test environment configuration
 export const E2E_CONFIG = {
@@ -50,13 +46,7 @@ export const E2E_CONFIG = {
  */
 export function createTestEnvironment() {
   const testDir = mkdtempSync(join(tmpdir(), 'aegis-e2e-'));
-  
-  // Initialize all stores in test directory
-  initStateStore(testDir);
-  initPlansStore(testDir);
-  initExecutionsStore(testDir);
-  initShieldStore(testDir);
-  
+
   // Create test wallet keystore file
   const keystoreDir = join(testDir, 'wallets');
   const walletFile = join(keystoreDir, `${E2E_CONFIG.TEST_WALLET_NAME}.json`);
@@ -85,7 +75,7 @@ export function createTestEnvironment() {
     cleanup: () => {
       // Cleanup function to remove test directory
       try {
-        require('fs').rmSync(testDir, { recursive: true, force: true });
+        rmSync(testDir, { recursive: true, force: true });
       } catch (err) {
         console.warn('Test cleanup failed:', err.message);
       }

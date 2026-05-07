@@ -19,7 +19,8 @@ export class TakeProfitStrategy extends BaseStrategy {
   }
 
   async evaluate(signal) {
-    const alerts = getPriceAlerts().filter(
+    const all = await getPriceAlerts();
+    const alerts = all.filter(
       a => a.id === signal.alertId && a.type === 'take-profit' && a.status === 'active'
     );
 

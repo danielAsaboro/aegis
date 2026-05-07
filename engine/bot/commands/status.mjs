@@ -3,8 +3,8 @@
  */
 
 import { getPortfolioAllocations, getPortfolioValue } from '../../utils/zerion-api.mjs';
-import { getEvmAddress, getSolAddress } from '../../../cli/lib/wallet/keystore.js';
-import { isSolana } from '../../../cli/lib/chain/registry.js';
+import { getEvmAddress, getSolAddress } from '../../../utils/wallet/keystore.js';
+import { isSolana } from '../../../utils/chain/registry.js';
 import { getActiveDCAPlans } from '../../store/plans.mjs';
 import { getActiveRebalanceTargets, getActivePriceAlerts } from '../../store/plans.mjs';
 import { getExecutionStats } from '../../store/executions.mjs';
@@ -33,11 +33,13 @@ export function registerStatus(bot, config) {
       }
 
       // Active strategies
-      const dcaPlans = getActiveDCAPlans();
-      const rebalTargets = getActiveRebalanceTargets();
-      const alerts = getActivePriceAlerts();
+      const [dcaPlans, rebalTargets, alerts, execStats] = await Promise.all([
+        getActiveDCAPlans(),
+        getActiveRebalanceTargets(),
+        getActivePriceAlerts(),
+        getExecutionStats(),
+      ]);
       const scheduler = getSchedulerStatus();
-      const execStats = getExecutionStats();
       const signalStats = bus.getStats();
       const activeSignals = Object.entries(signalStats).filter(([, v]) => v > 0);
 

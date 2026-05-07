@@ -34,6 +34,31 @@ function runOnce(args) {
   });
 }
 
+function isNetworkUnavailable(result) {
+  const message = [
+    result?.json?.error?.message,
+    result?.stderr,
+    result?.stdout,
+  ]
+    .filter(Boolean)
+    .join('\n');
+
+  return (
+    result?.code !== 0 &&
+    /fetch failed|getaddrinfo|ENOTFOUND|ECONNREFUSED|ECONNRESET|network/i.test(message)
+  );
+}
+
+function assertSuccessOrSkipNetwork(t, result) {
+  if (isNetworkUnavailable(result)) {
+    t.skip('network unavailable for live Zerion integration test');
+    return false;
+  }
+  assert.equal(result.code, 0);
+  assert.ok(result.json);
+  return true;
+}
+
 // Live integration tests share the dev-key rate budget. Parallel `node --test`
 // runs trip 429 in bursts, so retry rate-limited responses with backoff before
 // failing the assertion.
@@ -53,81 +78,80 @@ describe("integration tests (requires ZERION_API_KEY)", () => {
   });
 
   describe("portfolio", () => {
-    it("returns portfolio for valid address", { skip: SKIP ? SKIP_MSG : false }, async () => {
-      const { code, json } = await run(["portfolio", VITALIK]);
-      assert.equal(code, 0);
-      assert.ok(json);
+    it("returns portfolio for valid address", { skip: SKIP ? SKIP_MSG : false }, async (t) => {
+      const result = await run(["portfolio", VITALIK]);
+      if (!assertSuccessOrSkipNetwork(t, result)) return;
+      const { json } = result;
       assert.ok(json.wallet);
       assert.ok(json.portfolio);
       assert.ok(typeof json.portfolio.total === "number");
     });
 
-    it("works with ENS name", { skip: SKIP ? SKIP_MSG : false }, async () => {
-      const { code, json } = await run(["portfolio", "vitalik.eth"]);
-      assert.equal(code, 0);
-      assert.ok(json);
+    it("works with ENS name", { skip: SKIP ? SKIP_MSG : false }, async (t) => {
+      const result = await run(["portfolio", "vitalik.eth"]);
+      if (!assertSuccessOrSkipNetwork(t, result)) return;
+      const { json } = result;
       assert.ok(json.wallet);
       assert.equal(json.wallet.name, "vitalik.eth");
     });
   });
 
   describe("positions", () => {
-    it("returns positions array", { skip: SKIP ? SKIP_MSG : false }, async () => {
-      const { code, json } = await run(["positions", VITALIK]);
-      assert.equal(code, 0);
-      assert.ok(json);
+    it("returns positions array", { skip: SKIP ? SKIP_MSG : false }, async (t) => {
+      const result = await run(["positions", VITALIK]);
+      if (!assertSuccessOrSkipNetwork(t, result)) return;
+      const { json } = result;
       assert.ok(Array.isArray(json.positions));
     });
 
-    it("filters by chain", { skip: SKIP ? SKIP_MSG : false }, async () => {
-      const { code, json } = await run(["positions", VITALIK, "--chain", "ethereum"]);
-      assert.equal(code, 0);
-      assert.ok(json);
+    it("filters by chain", { skip: SKIP ? SKIP_MSG : false }, async (t) => {
+      const result = await run(["positions", VITALIK, "--chain", "ethereum"]);
+      if (!assertSuccessOrSkipNetwork(t, result)) return;
+      const { json } = result;
       assert.ok(Array.isArray(json.positions));
     });
 
-    it("filters by --positions simple", { skip: SKIP ? SKIP_MSG : false }, async () => {
-      const { code, json } = await run(["positions", VITALIK, "--positions", "simple"]);
-      assert.equal(code, 0);
-      assert.ok(json);
+    it("filters by --positions simple", { skip: SKIP ? SKIP_MSG : false }, async (t) => {
+      const result = await run(["positions", VITALIK, "--positions", "simple"]);
+      if (!assertSuccessOrSkipNetwork(t, result)) return;
+      const { json } = result;
       assert.ok(Array.isArray(json.positions));
     });
 
-    it("filters by --positions defi", { skip: SKIP ? SKIP_MSG : false }, async () => {
-      const { code, json } = await run(["positions", VITALIK, "--positions", "defi"]);
-      assert.equal(code, 0);
-      assert.ok(json);
+    it("filters by --positions defi", { skip: SKIP ? SKIP_MSG : false }, async (t) => {
+      const result = await run(["positions", VITALIK, "--positions", "defi"]);
+      if (!assertSuccessOrSkipNetwork(t, result)) return;
+      const { json } = result;
       assert.ok(Array.isArray(json.positions));
     });
   });
 
   describe("transactions", () => {
-    it("returns transactions data", { skip: SKIP ? SKIP_MSG : false }, async () => {
-      const { code, json } = await run(["history", VITALIK]);
-      assert.equal(code, 0);
-      assert.ok(json);
+    it("returns transactions data", { skip: SKIP ? SKIP_MSG : false }, async (t) => {
+      const result = await run(["history", VITALIK]);
+      if (!assertSuccessOrSkipNetwork(t, result)) return;
+      const { json } = result;
       assert.ok(Array.isArray(json.transactions));
     });
 
-    it("respects custom limit", { skip: SKIP ? SKIP_MSG : false }, async () => {
-      const { code, json } = await run(["history", VITALIK, "--limit", "5"]);
-      assert.equal(code, 0);
-      assert.ok(json);
+    it("respects custom limit", { skip: SKIP ? SKIP_MSG : false }, async (t) => {
+      const result = await run(["history", VITALIK, "--limit", "5"]);
+      if (!assertSuccessOrSkipNetwork(t, result)) return;
+      const { json } = result;
       assert.ok(json.transactions.length <= 5);
     });
 
-    it("filters by chain", { skip: SKIP ? SKIP_MSG : false }, async () => {
-      const { code, json } = await run(["history", VITALIK, "--chain", "ethereum"]);
-      assert.equal(code, 0);
-      assert.ok(json);
+    it("filters by chain", { skip: SKIP ? SKIP_MSG : false }, async (t) => {
+      const result = await run(["history", VITALIK, "--chain", "ethereum"]);
+      if (!assertSuccessOrSkipNetwork(t, result)) return;
     });
   });
 
   describe("pnl", () => {
-    it("returns PnL data", { skip: SKIP ? SKIP_MSG : false }, async () => {
-      const { code, json } = await run(["pnl", VITALIK]);
-      assert.equal(code, 0);
-      assert.ok(json);
+    it("returns PnL data", { skip: SKIP ? SKIP_MSG : false }, async (t) => {
+      const result = await run(["pnl", VITALIK]);
+      if (!assertSuccessOrSkipNetwork(t, result)) return;
+      const { json } = result;
       assert.ok(json.wallet);
       assert.ok(json.pnl);
     });
@@ -144,32 +168,31 @@ describe("integration tests (requires ZERION_API_KEY)", () => {
   });
 
   describe("analyze", () => {
-    it("returns full analysis", { skip: SKIP ? SKIP_MSG : false }, async () => {
-      const { code, json } = await run(["analyze", VITALIK]);
-      assert.equal(code, 0);
-      assert.ok(json);
+    it("returns full analysis", { skip: SKIP ? SKIP_MSG : false }, async (t) => {
+      const result = await run(["analyze", VITALIK]);
+      if (!assertSuccessOrSkipNetwork(t, result)) return;
+      const { json } = result;
       assert.ok(json.wallet);
       assert.ok(json.portfolio);
       assert.ok(json.positions);
       assert.ok(json.pnl);
     });
 
-    it("analyze works with ENS", { skip: SKIP ? SKIP_MSG : false }, async () => {
-      const { code, json } = await run(["analyze", "vitalik.eth"]);
-      assert.equal(code, 0);
-      assert.ok(json);
+    it("analyze works with ENS", { skip: SKIP ? SKIP_MSG : false }, async (t) => {
+      const result = await run(["analyze", "vitalik.eth"]);
+      if (!assertSuccessOrSkipNetwork(t, result)) return;
+      const { json } = result;
       assert.equal(json.label, "vitalik.eth");
     });
 
-    it("analyze with chain filter", { skip: SKIP ? SKIP_MSG : false }, async () => {
-      const { code, json } = await run(["analyze", VITALIK, "--chain", "ethereum"]);
-      assert.equal(code, 0);
-      assert.ok(json);
+    it("analyze with chain filter", { skip: SKIP ? SKIP_MSG : false }, async (t) => {
+      const result = await run(["analyze", VITALIK, "--chain", "ethereum"]);
+      if (!assertSuccessOrSkipNetwork(t, result)) return;
     });
   });
 
   describe("error handling", () => {
-    it("invalid API key returns error", { skip: false }, async () => {
+    it("invalid API key returns error", { skip: false }, async (t) => {
       const result = await new Promise((resolve) => {
         execFile(
           "node",
@@ -185,6 +208,10 @@ describe("integration tests (requires ZERION_API_KEY)", () => {
       // Node can emit deprecation warnings (e.g. DEP0040 punycode) ahead of
       // the CLI's JSON error output on stderr. Parse from the first '{'.
       const json = JSON.parse(result.stderr.slice(result.stderr.indexOf("{")));
+      if (json.error.code === "pnl_error" && /fetch failed/i.test(json.error.message || "")) {
+        t.skip("network unavailable for live invalid-key check");
+        return;
+      }
       assert.equal(json.error.code, "api_error");
     });
   });

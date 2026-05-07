@@ -1,20 +1,59 @@
 /**
  * AEGIS structured logger — pino-based.
  * Child loggers for each subsystem (monitor, strategy, policy, execution, bot).
+ *
+ * When STUDIO_ENABLED=1, pino is wired with `multistream` so every log
+ * line is teed to (a) the normal terminal destination AND (b) the
+ * in-process log bridge that the studio's /ws/logs reads from. The
+ * studio module sets STUDIO_ENABLED before this module is imported (see
+ * engine/index.mjs).
  */
 
 import pino from 'pino';
+import { logBridge } from './log-bridge.mjs';
 
 const level = process.env.LOG_LEVEL || 'info';
+const studioEnabled = process.env.STUDIO_ENABLED === '1';
 
-const logger = pino({
-  level,
-  transport: process.stdout.isTTY
-    ? { target: 'pino/file', options: { destination: 1 } }
-    : undefined,
-  base: { service: 'kraken' },
-  timestamp: pino.stdTimeFunctions.isoTime,
-});
+// When running as an MCP STDIO server, stdout carries the JSON-RPC stream —
+// any log byte there breaks the protocol. AEGIS_LOG_STDERR=1 routes logs
+// through fd 2 (stderr) instead.
+const useStderr = process.env.AEGIS_LOG_STDERR === '1';
+
+function buildLogger() {
+  const baseOpts = {
+    level,
+    base: { service: 'aegis' },
+    timestamp: pino.stdTimeFunctions.isoTime,
+  };
+
+  if (studioEnabled) {
+    // multistream forks every log line — terminal AND studio bridge.
+    // Transport workers are bypassed here because multistream wants
+    // synchronous Writables; that's fine, we only lose the pretty
+    // transport (none was configured by default anyway).
+    const terminal = pino.destination(useStderr ? 2 : 1);
+    return pino(
+      baseOpts,
+      pino.multistream([
+        { stream: terminal },
+        { stream: logBridge },
+      ]),
+    );
+  }
+
+  return pino(
+    {
+      ...baseOpts,
+      transport: process.stdout.isTTY && !useStderr
+        ? { target: 'pino/file', options: { destination: 1 } }
+        : undefined,
+    },
+    useStderr ? pino.destination(2) : undefined,
+  );
+}
+
+const logger = buildLogger();
 
 export default logger;
 

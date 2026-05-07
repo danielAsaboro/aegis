@@ -23,6 +23,8 @@ import { registerPropose } from './commands/propose.mjs';
 import { registerVote } from './commands/vote.mjs';
 import { registerWhale } from './commands/whale.mjs';
 import { registerShield } from './commands/shield.mjs';
+import { registerChat } from './handlers/chat.mjs';
+import { registerVoice } from './handlers/voice.mjs';
 
 /**
  * Create and configure the Telegram bot.
@@ -66,9 +68,20 @@ export function createBot(config) {
   registerWhale(bot);
   registerShield(bot, config);
 
+  // QVAC voice handler — captures voice/audio messages BEFORE the chat
+  // fallback so transcribed voice notes flow through the same pipeline.
+  registerVoice(bot, config);
+
+  // LLM agent — natural-language chat surface (must be registered LAST so
+  // bot.on('message') fallback only fires for non-slash text not handled
+  // by any of the slash commands above).
+  registerChat(bot, config);
+
   // Help command
   bot.command('help', (ctx) => ctx.reply(
     'AEGIS Commands:\n\n' +
+    'Talk to me — I understand natural language. Try: "what is my portfolio?" or "swap 0.01 SOL to USDC".\n\n' +
+    '/agent — Manage the LLM agent (model, autonomy, reset history)\n' +
     '/start — Welcome + wallet info\n' +
     '/dca — DCA plans (create/list/pause/cancel)\n' +
     '/rebalance — Portfolio rebalancing\n' +

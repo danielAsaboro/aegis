@@ -10,10 +10,10 @@ import { policyLog } from '../core/logger.mjs';
 import { createPolicyResult } from '../core/types.mjs';
 
 // Import CLI policies (each exports check(ctx))
-import { check as checkSpendLimit } from '../../cli/policies/spend-limit.mjs';
-import { check as checkTimeWindow } from '../../cli/policies/time-window.mjs';
-import { check as checkPriceGuard } from '../../cli/policies/price-guard.mjs';
-import { check as checkCooldown } from '../../cli/policies/cooldown.mjs';
+import { check as checkSpendLimit } from '../../policies/spend-limit.mjs';
+import { check as checkTimeWindow } from '../../policies/time-window.mjs';
+import { check as checkPriceGuard } from '../../policies/price-guard.mjs';
+import { check as checkCooldown } from '../../policies/cooldown.mjs';
 
 // Import AEGIS consensus policy
 import { check as checkConsensus } from './consensus.mjs';
@@ -36,6 +36,22 @@ const POLICIES = {
 };
 
 /**
+ * Error thrown when a trade is run through the policy engine without any
+ * configured policies. AEGIS treats "no policies = god-mode", which is
+ * exactly what the policy layer exists to prevent.
+ */
+export class MissingPolicyConfigError extends Error {
+  constructor(proposalId) {
+    super(
+      `runPolicies called with empty policyConfig for proposal ${proposalId}. ` +
+      `AEGIS does not support unscoped trades — attach at least one policy ` +
+      `(e.g. getDefaultPolicies('manual'))`
+    );
+    this.code = 'missing_policy_config';
+  }
+}
+
+/**
  * Run all applicable policies against a trade proposal.
  *
  * @param {object} proposal - TradeProposal
@@ -48,8 +64,8 @@ export async function runPolicies(proposal, policyConfig = {}) {
   const activePolicies = Object.keys(policyConfig).filter(k => POLICIES[k]);
 
   if (activePolicies.length === 0) {
-    policyLog.debug({ proposalId: proposal.id }, 'No policies configured, auto-approving');
-    return { approved: true, results: [] };
+    policyLog.error({ proposalId: proposal.id }, 'Refused: no policies configured');
+    throw new MissingPolicyConfigError(proposal.id);
   }
 
   // Build policy context matching Zerion's contract

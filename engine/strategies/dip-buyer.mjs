@@ -20,7 +20,8 @@ export class DipBuyerStrategy extends BaseStrategy {
 
   async evaluate(signal) {
     // Find the alert that triggered this
-    const alerts = getPriceAlerts().filter(
+    const all = await getPriceAlerts();
+    const alerts = all.filter(
       a => a.id === signal.alertId && a.type === 'dip-buyer' && a.status === 'active'
     );
 

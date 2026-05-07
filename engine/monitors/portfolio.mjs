@@ -36,7 +36,7 @@ export function stopPortfolioMonitor() {
 }
 
 async function checkPortfolio(walletAddress) {
-  const targets = getActiveRebalanceTargets();
+  const targets = await getActiveRebalanceTargets();
   if (targets.length === 0) return;
 
   for (const target of targets) {

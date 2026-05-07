@@ -18,7 +18,8 @@ const _jobs = new Map(); // planId → cron.ScheduledTask
  */
 export function startScheduler() {
   monitorLog.info('Starting DCA scheduler');
-  syncJobs();
+  // syncJobs is async but we don't block startup on it.
+  Promise.resolve(syncJobs()).catch(err => monitorLog.warn({ err: err.message }, 'syncJobs initial run failed'));
   return () => stopScheduler();
 }
 
@@ -26,8 +27,8 @@ export function startScheduler() {
  * Sync cron jobs with current active DCA plans.
  * Call this after creating/pausing/cancelling plans.
  */
-export function syncJobs() {
-  const plans = getActiveDCAPlans();
+export async function syncJobs() {
+  const plans = await getActiveDCAPlans();
   const activePlanIds = new Set(plans.map(p => p.id));
 
   // Remove jobs for plans that are no longer active

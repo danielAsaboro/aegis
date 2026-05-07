@@ -32,7 +32,7 @@ export function registerDCA(bot, config) {
     const subcommand = args[0];
 
     if (!subcommand || subcommand === 'list') {
-      const plans = getDCAPlans(ctx.chat.id);
+      const plans = await getDCAPlans(ctx.chat.id);
       let msg = formatDCAList(plans);
       if (plans.length > 0) {
         await ctx.replyWithMarkdown(msg);
@@ -66,12 +66,12 @@ export function registerDCA(bot, config) {
         return;
       }
       const newStatus = subcommand === 'pause' ? 'paused' : subcommand === 'resume' ? 'active' : 'cancelled';
-      const updated = updateDCAPlan(planId, { status: newStatus });
+      const updated = await updateDCAPlan(planId, { status: newStatus });
       if (!updated) {
         await ctx.reply(`Plan ${planId} not found`);
         return;
       }
-      syncJobs();
+      await syncJobs();
       await ctx.replyWithMarkdown(`Plan \`${planId}\` → *${newStatus}*`);
       return;
     }
@@ -92,8 +92,8 @@ export function registerDCA(bot, config) {
         policies: getDefaultPolicies('dca'),
         forcePrivate: isPrivate,
       });
-      addDCAPlan(plan);
-      syncJobs();
+      await addDCAPlan(plan);
+      await syncJobs();
 
       const privacyBadge = isPrivate ? ' 🔒' : '';
       await ctx.replyWithMarkdown(formatDCAPlan(plan) + privacyBadge);
@@ -168,8 +168,8 @@ export function registerDCA(bot, config) {
       policies: getDefaultPolicies('dca'),
       forcePrivate: wizard.forcePrivate || false,
     });
-    addDCAPlan(plan);
-    syncJobs();
+    await addDCAPlan(plan);
+    await syncJobs();
     _wizards.delete(ctx.from.id);
 
     const privacyBadge = wizard.forcePrivate ? ' 🔒 Private' : '';
@@ -182,9 +182,9 @@ export function registerDCA(bot, config) {
     const action = ctx.match[1];
     const planId = ctx.match[2];
     const newStatus = action === 'pause' ? 'paused' : action === 'resume' ? 'active' : 'cancelled';
-    const updated = updateDCAPlan(planId, { status: newStatus });
+    const updated = await updateDCAPlan(planId, { status: newStatus });
     if (!updated) return ctx.answerCbQuery('Plan not found');
-    syncJobs();
+    await syncJobs();
     await ctx.answerCbQuery(`Plan ${newStatus}`);
     await ctx.editMessageText(`Plan \`${planId}\` → *${newStatus}*`, { parse_mode: 'Markdown' });
   });

@@ -1,52 +1,63 @@
 /**
- * Execution log persistence.
- * Tracks all trade executions with tx hashes, amounts, and outcomes.
- * JSON file storage at DATA_DIR/executions.json
+ * Trade execution log — Prisma-backed.
+ *
+ * Replaces the JSON file at ~/.zerion/aegis/executions.json. All exports
+ * are async; callers must await every read and write.
  */
 
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { getPrisma, closeDb, initDb, pushDbSchema } from '../db/index.mjs';
 import { storeLog } from '../core/logger.mjs';
+import { join } from 'node:path';
 
-let DATA_DIR;
-let EXEC_PATH;
-let _cache = null;
-
-export function initExecutionsStore(dataDir) {
-  DATA_DIR = dataDir;
-  EXEC_PATH = join(DATA_DIR, 'executions.json');
-  mkdirSync(DATA_DIR, { recursive: true });
-  _cache = null;
+function rowToExecution(row) {
+  return {
+    id: row.id,
+    proposalId: row.proposalId,
+    strategyId: row.strategyId,
+    strategyType: row.strategyType,
+    fromToken: row.fromToken,
+    toToken: row.toToken,
+    amount: row.amount,
+    chain: row.chain,
+    reason: row.reason,
+    success: row.success,
+    txHash: row.txHash,
+    error: row.errorMsg,
+    estimatedOutput: row.estimatedOutput,
+    liquiditySource: row.liquiditySource,
+    private: row.isPrivate,
+    shieldedBalance: row.shieldedBalance,
+    chatId: row.chatId,
+    missionId: row.missionId,
+    amountUsd: row.amountUsd,
+    timestamp: row.createdAt?.toISOString?.() ?? row.createdAt,
+  };
 }
 
-function load() {
-  if (_cache) return _cache;
-  if (!existsSync(EXEC_PATH)) {
-    _cache = [];
-    return _cache;
-  }
-  try {
-    _cache = JSON.parse(readFileSync(EXEC_PATH, 'utf-8'));
-    return _cache;
-  } catch (err) {
-    storeLog.warn({ err }, 'Failed to read executions, starting fresh');
-    _cache = [];
-    return _cache;
-  }
-}
-
-function save() {
-  writeFileSync(EXEC_PATH, JSON.stringify(_cache, null, 2) + '\n');
-}
-
-export function logExecution(result) {
-  const data = load();
-  data.push(result);
-  // Keep last 1000 executions
-  if (data.length > 1000) {
-    _cache = data.slice(-1000);
-  }
-  save();
+export async function logExecution(result) {
+  await getPrisma().tradeExecution.create({
+    data: {
+      id: result.id,
+      proposalId: result.proposalId || '',
+      strategyId: result.strategyId || '',
+      strategyType: result.strategyType || 'manual',
+      fromToken: result.fromToken,
+      toToken: result.toToken,
+      amount: String(result.amount),
+      chain: result.chain,
+      reason: result.reason || '',
+      success: !!result.success,
+      txHash: result.txHash || null,
+      errorMsg: result.error || null,
+      estimatedOutput: result.estimatedOutput != null ? String(result.estimatedOutput) : null,
+      liquiditySource: result.liquiditySource || null,
+      isPrivate: !!result.private,
+      shieldedBalance: result.shieldedBalance != null ? String(result.shieldedBalance) : null,
+      chatId: result.chatId != null ? String(result.chatId) : null,
+      missionId: result.missionId || null,
+      amountUsd: result.amountUsd != null ? Number(result.amountUsd) : null,
+    },
+  });
   storeLog.info({
     execId: result.id,
     success: result.success,
@@ -55,41 +66,58 @@ export function logExecution(result) {
   return result;
 }
 
-export function getExecutions({ chatId, strategyId, strategyType, limit = 20 } = {}) {
-  let data = load();
-  if (strategyId) data = data.filter(e => e.strategyId === strategyId);
-  if (strategyType) data = data.filter(e => e.strategyType === strategyType);
-  return data.slice(-limit).reverse();
+export async function getExecutions({ chatId, strategyId, strategyType, limit = 20 } = {}) {
+  const where = {};
+  if (chatId != null) where.chatId = String(chatId);
+  if (strategyId) where.strategyId = strategyId;
+  if (strategyType) where.strategyType = strategyType;
+  const rows = await getPrisma().tradeExecution.findMany({
+    where,
+    orderBy: { createdAt: 'desc' },
+    take: limit,
+  });
+  return rows.map(rowToExecution);
 }
 
-export function getRecentExecutions(limit = 10) {
-  return load().slice(-limit).reverse();
+export async function getRecentExecutions(limit = 10) {
+  const rows = await getPrisma().tradeExecution.findMany({
+    orderBy: { createdAt: 'desc' },
+    take: limit,
+  });
+  return rows.map(rowToExecution);
 }
 
-export function getExecutionsByStrategy(strategyId, limit = 50) {
-  return load()
-    .filter(e => e.strategyId === strategyId)
-    .slice(-limit)
-    .reverse();
+export async function getExecutionsByStrategy(strategyId, limit = 50) {
+  const rows = await getPrisma().tradeExecution.findMany({
+    where: { strategyId },
+    orderBy: { createdAt: 'desc' },
+    take: limit,
+  });
+  return rows.map(rowToExecution);
 }
 
-export function getExecutionStats() {
-  const data = load();
-  const total = data.length;
-  const successful = data.filter(e => e.success).length;
+export async function getExecutionStats() {
+  const prisma = getPrisma();
+  const since24h = new Date(Date.now() - 86_400_000);
+  const [total, successful, last24h] = await Promise.all([
+    prisma.tradeExecution.count(),
+    prisma.tradeExecution.count({ where: { success: true } }),
+    prisma.tradeExecution.count({ where: { createdAt: { gt: since24h } } }),
+  ]);
   const failed = total - successful;
-  const last24h = data.filter(
-    e => new Date(e.timestamp) > new Date(Date.now() - 86_400_000)
-  );
   return {
     total,
     successful,
     failed,
-    last24h: last24h.length,
+    last24h,
     successRate: total > 0 ? ((successful / total) * 100).toFixed(1) + '%' : 'N/A',
   };
 }
 
-export function invalidateCache() {
-  _cache = null;
+export async function initExecutionsStore(testDir) {
+  process.env.DATA_DIR = testDir;
+  process.env.AEGIS_DATABASE_URL = `file:${join(testDir, 'aegis.db')}`;
+  pushDbSchema();
+  await closeDb();
+  await initDb();
 }

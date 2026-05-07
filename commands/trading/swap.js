@@ -6,16 +6,18 @@ import { getConfigValue } from "../../utils/config.js";
 import { formatSwapQuote } from "../../utils/common/format.js";
 import { validateChain } from "../../utils/common/validate.js";
 
-// AEGIS policy enforcement (optional — engine module is part of the AEGIS overlay)
-let runPolicies, createTradeProposal, getDefaultPolicies;
-try {
-  const engine = await import("../../engine/policies/engine.mjs");
-  const types = await import("../../engine/core/types.mjs");
-  runPolicies = engine.runPolicies;
-  getDefaultPolicies = engine.getDefaultPolicies;
-  createTradeProposal = types.createTradeProposal;
-} catch {
-  // AEGIS not available — policy enforcement is a no-op
+// AEGIS policy enforcement — lazy-loaded so `zerion --help` works without env.
+// At trade time the engine is required and there is no bypass flag.
+async function loadAegis() {
+  const [engine, types] = await Promise.all([
+    import("../../engine/policies/engine.mjs"),
+    import("../../engine/core/types.mjs"),
+  ]);
+  return {
+    runPolicies: engine.runPolicies,
+    getDefaultPolicies: engine.getDefaultPolicies,
+    createTradeProposal: types.createTradeProposal,
+  };
 }
 
 export default async function swap(args, flags) {
@@ -65,33 +67,32 @@ export default async function swap(args, flags) {
       process.exit(1);
     }
 
-    // 3. Run AEGIS policy checks (if engine is loaded and not skipped)
-    const skipPolicies = flags["skip-policies"] || flags.skipPolicies;
-    if (runPolicies && createTradeProposal && !skipPolicies) {
-      const proposal = createTradeProposal({
-        strategyId: "cli-swap",
-        strategyType: "manual",
-        fromToken: fromToken.toUpperCase(),
-        toToken: toToken.toUpperCase(),
-        amount: parseFloat(amount),
-        chain: fromChain,
-        reason: "CLI swap command",
+    // 3. Run AEGIS policy checks — every trade must pass. No bypass flag.
+    const { runPolicies, getDefaultPolicies, createTradeProposal } = await loadAegis();
+    const proposal = createTradeProposal({
+      strategyId: "cli-swap",
+      strategyType: "manual",
+      fromToken: fromToken.toUpperCase(),
+      toToken: toToken.toUpperCase(),
+      amount: parseFloat(amount),
+      chain: fromChain,
+      reason: "CLI swap command",
+    });
+
+    const policyConfig = {
+      "spend-limit": { perTick: 1000, daily: 5000 },
+      ...getDefaultPolicies("manual"),
+    };
+
+    const policyResult = await runPolicies(proposal, policyConfig);
+    if (!policyResult.approved) {
+      printError("policy_denied", `Trade blocked by policy: ${policyResult.deniedBy}`, {
+        reason: policyResult.reason,
+        suggestion: "Adjust trade size or policy config; bypass is intentionally not supported.",
       });
-
-      const policyConfig = {
-        "spend-limit": { perTick: 1000, daily: 5000 },
-        ...getDefaultPolicies("manual"),
-      };
-
-      const policyResult = await runPolicies(proposal, policyConfig);
-      if (!policyResult.approved) {
-        printError("policy_denied", `Trade blocked by policy: ${policyResult.deniedBy}`, {
-          reason: policyResult.reason,
-          suggestion: "Use --skip-policies to bypass policy checks (use with caution)",
-        });
-        process.exit(1);
-      }
+      process.exit(1);
     }
+    proposal.policyResult = policyResult;
 
     // 4. Show quote
     const isCrossChain = fromChain !== toChain;
@@ -106,7 +107,8 @@ export default async function swap(args, flags) {
         fromChain,
         toChain: isCrossChain ? toChain : undefined,
         chain: isCrossChain ? `${fromChain} → ${toChain}` : fromChain,
-        policiesChecked: !skipPolicies && runPolicies ? true : undefined,
+        policiesChecked: true,
+        policiesPassed: policyResult.results.map((r) => r.policy),
       },
     };
 

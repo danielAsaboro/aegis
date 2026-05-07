@@ -1,0 +1,18 @@
+/*
+ * Fonts — pulled from Google Fonts on first visit, then cached by the
+ * browser. The plan called for fully self-hosted woff2 files; that's a
+ * v1.5 follow-up. Stack:
+ *   - Excalifont / display:    "Architects Daughter" (hand-drawn, free)
+ *   - Body / sans:             "Geist" (clean, modern, not-Inter)
+ *   - Accent / handwriting:    "Caveat" (scribbled side notes)
+ */
+@import url('https://fonts.googleapis.com/css2?family=Architects+Daughter&family=Caveat:wght@400;500;700&family=Geist:wght@400;500;600;700&display=swap');
+
+/* Excalifont alias — falls through to Architects Daughter so existing
+ * `font-display`/Tailwind references keep working when the actual
+ * Excalifont woff2 is dropped in later. */
+@font-face {
+  font-family: 'Excalifont';
+  src: local('Architects Daughter'), local('Caveat');
+  font-display: swap;
+}

@@ -1,0 +1,306 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("AEGIS_DATABASE_URL")
+}
+
+// ── Agent (LLM) ─────────────────────────────────────────────
+
+model AgentMessage {
+  id        Int      @id @default(autoincrement())
+  userId    String
+  role      String
+  content   String
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
+model AgentInvocation {
+  id           String   @id @default(cuid())
+  userId       String
+  source       String
+  model        String
+  status       String
+  inputTokens  Int?
+  outputTokens Int?
+  totalTokens  Int?
+  steps        Int?
+  durationMs   Int?
+  error        String?
+  startedAt    DateTime @default(now())
+  finishedAt   DateTime?
+  toolCalls    AgentToolCall[]
+
+  @@index([userId, startedAt])
+}
+
+model AgentToolCall {
+  id           String  @id @default(cuid())
+  invocationId String?
+  invocation   AgentInvocation? @relation(fields: [invocationId], references: [id])
+  userId       String
+  toolName     String
+  toolCallId   String
+  input        String
+  output       String?
+  errorMsg     String?
+  success      Boolean @default(false)
+  durationMs   Int?
+  createdAt    DateTime @default(now())
+  embedding    AgentToolCallEmbedding?
+
+  @@index([userId, createdAt])
+  @@index([toolName])
+}
+
+model AgentFact {
+  id        Int      @id @default(autoincrement())
+  userId    String
+  key       String
+  value     String
+  category  String?
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+  embedding AgentFactEmbedding?
+
+  @@unique([userId, key])
+  @@index([userId, category])
+}
+
+// ── QVAC: local-first semantic memory ───────────────────────
+
+model AgentFactEmbedding {
+  factId    Int      @id
+  fact      AgentFact @relation(fields: [factId], references: [id], onDelete: Cascade)
+  model     String
+  dim       Int
+  vector    Bytes
+  updatedAt DateTime @updatedAt
+}
+
+model AgentToolCallEmbedding {
+  toolCallId String   @id
+  toolCall   AgentToolCall @relation(fields: [toolCallId], references: [id], onDelete: Cascade)
+  userId     String
+  model      String
+  dim        Int
+  summary    String
+  vector     Bytes
+  createdAt  DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
+model VoicePreference {
+  chatId      String   @id
+  ttsEnabled  Boolean  @default(false)
+  voice       String?
+  language    String?
+  updatedAt   DateTime @updatedAt
+}
+
+// ── Migrated JSON stores ────────────────────────────────────
+
+model DCAPlan {
+  id            String   @id
+  fromToken     String
+  toToken       String
+  amount        String
+  chain         String
+  cron          String
+  status        String
+  policiesJson  String
+  chatId        String?
+  forcePrivate  Boolean  @default(false)
+  totalExecuted Int      @default(0)
+  totalSpent    Float    @default(0)
+  createdAt     DateTime @default(now())
+
+  @@index([chatId])
+  @@index([status])
+}
+
+model RebalanceTarget {
+  id           String   @id
+  chatId       String?
+  chain        String
+  targetsJson  String
+  threshold    Float    @default(5)
+  policiesJson String
+  status       String
+  createdAt    DateTime @default(now())
+
+  @@index([chatId])
+}
+
+model PriceAlert {
+  id             String   @id
+  token          String
+  chain          String
+  type           String
+  direction      String
+  threshold      Float
+  buyToken       String?
+  buyAmount      String?
+  policiesJson   String
+  chatId         String?
+  status         String
+  referencePrice Float?
+  createdAt      DateTime @default(now())
+
+  @@index([chatId])
+  @@index([status])
+}
+
+model GroupProposal {
+  id            String   @id
+  fromToken     String
+  toToken       String
+  amount        String
+  chain         String
+  proposerId    String
+  proposerName  String
+  chatId        String
+  requiredVotes Int
+  votesJson     String
+  expiresAt     DateTime
+  status        String
+  createdAt     DateTime @default(now())
+
+  @@index([chatId, status])
+}
+
+model WhaleWatch {
+  id        Int      @id @default(autoincrement())
+  chatId    String
+  address   String
+  label     String?
+  createdAt DateTime @default(now())
+
+  @@unique([chatId, address])
+}
+
+model TradeExecution {
+  id              String   @id
+  proposalId      String
+  strategyId      String
+  strategyType    String
+  fromToken       String
+  toToken         String
+  amount          String
+  chain           String
+  reason          String
+  success         Boolean
+  txHash          String?
+  errorMsg        String?
+  estimatedOutput String?
+  liquiditySource String?
+  isPrivate       Boolean  @default(false)
+  shieldedBalance String?
+  chatId          String?
+  missionId       String?
+  amountUsd       Float?
+  createdAt       DateTime @default(now())
+
+  @@index([strategyId, createdAt])
+  @@index([chatId, createdAt])
+  @@index([missionId, createdAt])
+}
+
+// ── Missions ────────────────────────────────────────────────
+
+model Mission {
+  id                String   @id @default(cuid())
+  userId            String
+  chatId            String?
+  title             String
+  intent            String
+  kind              String   // 'dca' | 'dip' | 'rebalance' | 'group' | 'agent'
+  status            String   @default("active") // active | paused | done | cancelled | exhausted | expired
+  policiesJson      String
+  budgetUsd         Float?
+  spentUsd          Float    @default(0)
+  perTxCapUsd       Float?
+  startsAt          DateTime @default(now())
+  expiresAt         DateTime?
+  dcaPlanId         String?  @unique
+  priceAlertId      String?  @unique
+  rebalanceTargetId String?  @unique
+  groupProposalId   String?  @unique
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  events            MissionEvent[]
+
+  @@index([userId, status])
+  @@index([chatId, status])
+}
+
+model MissionEvent {
+  id          String   @id @default(cuid())
+  missionId   String
+  mission     Mission  @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  kind        String   // 'committed' | 'tick' | 'trade' | 'denied' | 'paused' | 'resumed' | 'cancelled' | 'completed' | 'exhausted' | 'expired' | 'excursion' | 'budget_warning'
+  payloadJson String?
+  createdAt   DateTime @default(now())
+
+  @@index([missionId, createdAt])
+}
+
+model ShieldBalance {
+  id        Int      @id @default(autoincrement())
+  wallet    String
+  token     String
+  balance   String
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+
+  @@unique([wallet, token])
+}
+
+model ShieldTransaction {
+  id        Int      @id @default(autoincrement())
+  type      String
+  wallet    String
+  token     String
+  amount    String
+  signature String
+  recipient String?
+  createdAt DateTime @default(now())
+
+  @@index([wallet, createdAt])
+}
+
+model PriceState {
+  id            Int      @id @default(autoincrement())
+  token         String
+  chain         String
+  price         Float
+  previousPrice Float?
+  updatedAt     DateTime @updatedAt
+
+  @@unique([token, chain])
+}
+
+model SpendTracking {
+  strategyId   String   @id
+  totalSpent   Float    @default(0)
+  dailySpent   Float    @default(0)
+  tickSpent    Float    @default(0)
+  lastDayReset String
+  lastTickTime DateTime
+  historyJson  String   @default("[]")
+}
+
+model Cooldown {
+  strategyId String   @id
+  expiresAt  DateTime
+}
+
+model LastChecked {
+  monitorId String   @id
+  checkedAt DateTime
+}

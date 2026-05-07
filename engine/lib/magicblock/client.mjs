@@ -21,25 +21,34 @@ import {
   getAccount,
 } from '@solana/spl-token';
 import {
-  DELEGATION_PROGRAM_ID,
-  deriveVault,
   deriveEphemeralAta,
   delegateSpl,
   withdrawSpl as withdrawSplIxs,
 } from '@magicblock-labs/ephemeral-rollups-sdk';
 
-// Default private validator
-const DEFAULT_PRIVATE_VALIDATOR = new PublicKey('FnE6VJT5QNZdedZPnCoLsARgBwoE6DeJNjBs2H1gySXA');
+// Default private validator. Pulled from the live `devnet.magicblock.app`
+// ephemeral rollup via `getIdentity` — must match the validator actually
+// running the rollup or delegated accounts get stranded.
+//   curl -X POST https://devnet.magicblock.app \
+//     -H 'Content-Type: application/json' \
+//     -d '{"jsonrpc":"2.0","id":1,"method":"getIdentity"}'
+const DEFAULT_PRIVATE_VALIDATOR = new PublicKey('MAS1Dt9qreoRMQ14YQuhg8UTZMMzDdKhmkZMECCzk57');
 import env from '../../config.mjs';
 import { createLogger } from '../../core/logger.mjs';
 
 const log = createLogger('magicblock');
 
-// Token mint addresses for common tokens (devnet)
-export const TOKEN_MINTS = {
-  SOL: new PublicKey('So11111111111111111111111111111111111111112'), // Wrapped SOL
-  USDC: new PublicKey('4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU'), // Devnet USDC
-  USDT: new PublicKey('Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB'),
+const TOKEN_MINTS_BY_NETWORK = {
+  devnet: {
+    SOL: new PublicKey('So11111111111111111111111111111111111111112'),
+    USDC: new PublicKey('4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU'),
+    USDT: new PublicKey('Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB'),
+  },
+  mainnet: {
+    SOL: new PublicKey('So11111111111111111111111111111111111111112'),
+    USDC: new PublicKey('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'),
+    USDT: new PublicKey('Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB'),
+  },
 };
 
 // Token decimals
@@ -48,6 +57,15 @@ export const TOKEN_DECIMALS = {
   USDC: 6,
   USDT: 6,
 };
+
+function inferMagicBlockNetwork() {
+  const endpoints = [
+    env.MAGICBLOCK_RPC_URL,
+    env.MAGICBLOCK_EPHEMERAL_URL,
+  ].filter(Boolean).join(' ').toLowerCase();
+
+  return endpoints.includes('devnet') ? 'devnet' : 'mainnet';
+}
 
 /**
  * MagicBlock Private Payments Client
@@ -198,6 +216,41 @@ export class MagicBlockClient {
     log.info({ sig }, 'Transfer complete');
     return sig;
   }
+
+  /**
+   * Compatibility wrapper used by E2E tests and agent surfaces.
+   * If no recipient is supplied, transfer to self so the call still proves
+   * the ephemeral execution path without fabricating a result.
+   */
+  async privateTransfer(tokenMint, recipientOrMint, amount, decimals) {
+    const mint = typeof tokenMint === 'string' ? new PublicKey(tokenMint) : tokenMint;
+    const maybeRecipient = recipientOrMint ?? this.publicKey;
+    const recipientLooksLikeMint =
+      maybeRecipient instanceof PublicKey &&
+      maybeRecipient.equals(mint);
+    const recipient = recipientLooksLikeMint ? this.publicKey : maybeRecipient;
+    const resolvedDecimals = decimals ?? getTokenDecimalsByMint(mint);
+    return this.transfer(mint, recipient, amount, resolvedDecimals);
+  }
+
+  /**
+   * Read recent signatures observed on the ephemeral connection for the wallet.
+   */
+  async getTransactionHistory({ limit = 20, address } = {}) {
+    const target = address
+      ? (typeof address === 'string' ? new PublicKey(address) : address)
+      : this.publicKey;
+    const signatures = await this.ephemeralConnection.getSignaturesForAddress(target, { limit });
+
+    return signatures.map((entry) => ({
+      signature: entry.signature,
+      slot: entry.slot,
+      err: entry.err,
+      memo: entry.memo,
+      blockTime: entry.blockTime,
+      confirmationStatus: entry.confirmationStatus,
+    }));
+  }
 }
 
 /**
@@ -222,7 +275,8 @@ export function createMagicBlockClientFromSecret(secretKey) {
  */
 export function getTokenMint(symbol) {
   const upper = symbol.toUpperCase();
-  return TOKEN_MINTS[upper] || null;
+  const network = inferMagicBlockNetwork();
+  return TOKEN_MINTS_BY_NETWORK[network][upper] || null;
 }
 
 /**
@@ -231,4 +285,15 @@ export function getTokenMint(symbol) {
 export function getTokenDecimals(symbol) {
   const upper = symbol.toUpperCase();
   return TOKEN_DECIMALS[upper] || 9;
+}
+
+export function getTokenDecimalsByMint(mint) {
+  const mintStr = typeof mint === 'string' ? mint : mint.toBase58();
+  for (const network of Object.values(TOKEN_MINTS_BY_NETWORK)) {
+    for (const [symbol, tokenMint] of Object.entries(network)) {
+      if (tokenMint.toBase58() === mintStr) return TOKEN_DECIMALS[symbol] || 9;
+    }
+  }
+
+  return 9;
 }

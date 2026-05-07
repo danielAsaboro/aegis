@@ -21,7 +21,7 @@ export function registerAlerts(bot, config) {
     const subcommand = args[0];
 
     if (!subcommand || subcommand === 'list') {
-      const alerts = getPriceAlerts(ctx.chat.id);
+      const alerts = await getPriceAlerts(ctx.chat.id);
       await ctx.replyWithMarkdown(formatAlertList(alerts));
       return;
     }
@@ -41,7 +41,7 @@ export function registerAlerts(bot, config) {
           chatId: ctx.chat.id,
           policies: getDefaultPolicies(direction === 'below' ? 'dip-buyer' : 'take-profit'),
         });
-        addPriceAlert(alert);
+        await addPriceAlert(alert);
         await ctx.replyWithMarkdown(
           `✅ Alert created: *${alert.token}* ${alert.direction} ${alert.threshold}%` +
           (alert.buyToken ? ` → Buy ${alert.buyAmount} ${alert.buyToken}` : '')
@@ -58,7 +58,7 @@ export function registerAlerts(bot, config) {
     if (subcommand === 'remove') {
       const alertId = args[1];
       if (!alertId) return ctx.reply('Usage: /alerts remove <alert-id>');
-      const updated = updatePriceAlert(alertId, { status: 'cancelled' });
+      const updated = await updatePriceAlert(alertId, { status: 'cancelled' });
       if (!updated) return ctx.reply('Alert not found');
       await ctx.replyWithMarkdown(`Alert \`${alertId}\` cancelled`);
       return;
@@ -101,7 +101,7 @@ export function registerAlerts(bot, config) {
         chatId: wizard.chatId,
         policies: getDefaultPolicies(wizard.type === 'dip-buyer' ? 'dip-buyer' : 'take-profit'),
       });
-      addPriceAlert(alert);
+      await addPriceAlert(alert);
       _wizards.delete(ctx.from.id);
       await ctx.editMessageText(
         `✅ Alert created: *${alert.token}* ${alert.direction} ${alert.threshold}%` +
@@ -142,7 +142,7 @@ export function registerAlerts(bot, config) {
         chatId: wizard.chatId,
         policies: getDefaultPolicies(wizard.type === 'dip-buyer' ? 'dip-buyer' : 'take-profit'),
       });
-      addPriceAlert(alert);
+      await addPriceAlert(alert);
       _wizards.delete(ctx.from.id);
       await ctx.replyWithMarkdown(
         `✅ Alert created: *${alert.token}* ${alert.direction} ${alert.threshold}%`

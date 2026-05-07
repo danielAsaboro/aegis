@@ -12,8 +12,8 @@ import { getSpendTracking, recordSpend } from '../store/state.mjs';
  * @param {object} limits - { perTick, daily, total }
  * @returns {{ allowed: boolean, reason?: string, current: object }}
  */
-export function checkSpendLimits(strategyId, proposedAmountUsd, limits = {}) {
-  const track = getSpendTracking(strategyId);
+export async function checkSpendLimits(strategyId, proposedAmountUsd, limits = {}) {
+  const track = await getSpendTracking(strategyId);
   const amount = Number(proposedAmountUsd);
 
   if (limits.perTick && amount > limits.perTick) {

@@ -17,8 +17,8 @@ export async function check(ctx) {
   // Check cooldown via state store
   try {
     const { isOnCooldown, getCooldownRemaining } = await import('../engine/store/state.mjs');
-    if (isOnCooldown(strategyId)) {
-      const remaining = getCooldownRemaining(strategyId);
+    if (await isOnCooldown(strategyId)) {
+      const remaining = await getCooldownRemaining(strategyId);
       const remainingSec = Math.ceil(remaining / 1000);
       return {
         allow: false,

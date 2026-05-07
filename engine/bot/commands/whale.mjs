@@ -22,13 +22,13 @@ export function registerWhale(bot) {
         return;
       }
       const label = args.slice(2).join(' ') || '';
-      addWhaleWatch(ctx.chat.id, address, label);
+      await addWhaleWatch(ctx.chat.id, address, label);
       await ctx.replyWithMarkdown(`✅ Now watching \`${address.slice(0, 12)}...\` ${label}`);
       return;
     }
 
     if (subcommand === 'list' || !subcommand) {
-      const watches = getWhaleWatches(ctx.chat.id);
+      const watches = await getWhaleWatches(ctx.chat.id);
       await ctx.replyWithMarkdown('*Whale Watch List*\n\n' + formatWhaleList(watches));
       return;
     }
@@ -36,7 +36,7 @@ export function registerWhale(bot) {
     if (subcommand === 'remove') {
       const address = args[1];
       if (!address) return ctx.reply('Usage: /whale remove <address>');
-      const removed = removeWhaleWatch(ctx.chat.id, address);
+      const removed = await removeWhaleWatch(ctx.chat.id, address);
       await ctx.reply(removed ? 'Removed from watch list.' : 'Address not found in watch list.');
       return;
     }

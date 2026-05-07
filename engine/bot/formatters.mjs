@@ -257,7 +257,7 @@ export function formatPrivacySettings(config) {
     config.mode === 'auto' ? `Threshold: $${config.thresholdUsd}` : '',
     `Private tokens: ${config.privateTokens.join(', ') || 'none'}`,
     ``,
-    `_Use /shield settings <mode> to change_`,
-    `_Modes: off (public), on (always private), auto (threshold-based)_`,
+    `_Settings are currently loaded from environment variables at startup._`,
+    `_Modes: off (public), on (always private), auto (threshold-based)._`,
   ].filter(Boolean).join('\n');
 }

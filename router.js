@@ -126,6 +126,11 @@ function printUsage() {
       "init -y --browser": "Non-interactive init that opens dashboard.zerion.io for the API key",
       "setup skills": "Install Zerion agent skills via `npx skills add zeriontech/zerion-agent` (45+ hosts)",
     },
+    studio: {
+      "studio": "Open AEGIS Studio (local browser UI) — boots the engine with --studio if not already running",
+      "studio --port <n>": "Bind studio on a specific port (default 7474)",
+      "studio --no-open": "Don't auto-launch the browser",
+    },
     chains: [
       "ethereum", "base", "arbitrum", "optimism", "polygon",
       "binance-smart-chain", "avalanche", "gnosis", "scroll",

@@ -1,17 +1,29 @@
-import { describe, it, afterEach } from "node:test";
+import { describe, it, after, afterEach } from "node:test";
 import assert from "node:assert/strict";
+import { mkdtempSync, rmSync } from "node:fs";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
 import {
   serializeTransaction,
   recoverMessageAddress,
   recoverTypedDataAddress,
 } from "viem";
-import * as ows from "#zerion/utils/wallet/keystore.js";
+
+const TEST_HOME = mkdtempSync(join(tmpdir(), "ows-unit-home-"));
+process.env.HOME = TEST_HOME;
+process.env.USERPROFILE = TEST_HOME;
+
+const ows = await import("#zerion/utils/wallet/keystore.js");
 
 const TEST_WALLET = "ows-unit-test";
 
 afterEach(() => {
   try { ows.deleteWallet(TEST_WALLET); } catch {}
   try { ows.deleteWallet("ows-import-test"); } catch {}
+});
+
+after(() => {
+  rmSync(TEST_HOME, { recursive: true, force: true });
 });
 
 describe("ows wrapper", () => {

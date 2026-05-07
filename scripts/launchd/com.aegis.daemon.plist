@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  AEGIS daemon — launchd unit template.
+
+  Install:
+    cp scripts/launchd/com.aegis.daemon.plist ~/Library/LaunchAgents/
+    # edit ProgramArguments to point at the right `aegis` binary
+    launchctl load -w ~/Library/LaunchAgents/com.aegis.daemon.plist
+
+  Uninstall:
+    launchctl unload ~/Library/LaunchAgents/com.aegis.daemon.plist
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.aegis.daemon</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/local/bin/aegis</string>
+        <string>daemon</string>
+        <string>start</string>
+        <string>--foreground</string>
+    </array>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>KeepAlive</key>
+    <dict>
+        <key>SuccessfulExit</key>
+        <false/>
+    </dict>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin</string>
+    </dict>
+
+    <key>StandardOutPath</key>
+    <string>/tmp/aegis-daemon.out.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/tmp/aegis-daemon.err.log</string>
+</dict>
+</plist>

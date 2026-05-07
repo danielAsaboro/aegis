@@ -25,7 +25,7 @@ let _cachedKeypair = null;
 export function getKeypair() {
   if (_cachedKeypair) return _cachedKeypair;
 
-  const key = env.SOLANA_PRIVATE_KEY;
+  const key = process.env.SOLANA_PRIVATE_KEY || env.SOLANA_PRIVATE_KEY;
   if (!key) {
     log.debug('SOLANA_PRIVATE_KEY not set');
     return null;
@@ -91,5 +91,5 @@ export function clearKeypairCache() {
  * Check if a keypair is available.
  */
 export function hasKeypair() {
-  return !!env.SOLANA_PRIVATE_KEY;
+  return !!(process.env.SOLANA_PRIVATE_KEY || env.SOLANA_PRIVATE_KEY);
 }

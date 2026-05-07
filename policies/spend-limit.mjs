@@ -31,7 +31,7 @@ export async function check(ctx) {
   try {
     // Dynamic import to avoid circular deps — only used when running in AEGIS context
     const { getSpendTracking } = await import('../engine/store/state.mjs');
-    spendData = getSpendTracking(strategyId);
+    spendData = await getSpendTracking(strategyId);
   } catch {
     // Running outside AEGIS (e.g., standalone policy test) — skip spend checks
     return { allow: true };

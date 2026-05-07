@@ -1,12 +1,11 @@
 /**
  * AEGIS Private Executor — MagicBlock private execution pipeline.
  *
- * Flow: deposit to ER → private transfer/swap → withdraw to destination
+ * Current supported flow: deposit the source asset into the MagicBlock shield.
  *
  * Used when privacy policy indicates usePrivate=true.
  */
 
-import { Keypair, PublicKey } from '@solana/web3.js';
 import {
   MagicBlockClient,
   getTokenMint,
@@ -17,28 +16,22 @@ import { executionLog } from '../core/logger.mjs';
 import { logExecution } from '../store/executions.mjs';
 import { recordSpend, setCooldown } from '../store/state.mjs';
 import { updateDCAPlan, getDCAPlan } from '../store/plans.mjs';
-import { updateShieldBalance } from '../store/shield.mjs';
+import { updateShieldBalance, recordShieldTransaction } from '../store/shield.mjs';
 import bus from '../core/event-bus.mjs';
 
 /**
  * Execute a trade privately through MagicBlock.
  *
- * For now, this implements a simplified flow:
- * 1. Check shielded balance
- * 2. If insufficient, deposit from Solana to shield
- * 3. Execute private transfer within shield (or just hold for now)
- * 4. For swaps, the user must pre-shield and post-unshield
- *
- * Note: True private swaps would require integration with a DEX on the ephemeral rollup.
- * For the hackathon demo, we show the deposit → shielded state → withdraw flow.
+ * This path is intentionally strict: it performs a real shield deposit and
+ * refuses to pretend a token-for-token swap happened inside MagicBlock when
+ * no private DEX leg exists.
  *
  * @param {object} proposal - TradeProposal from a strategy
  * @param {object} options
- * @param {Keypair} options.keypair - Wallet keypair for signing
- * @param {number} [options.maxSlippage] - Not used in private execution (no DEX yet)
+ * @param {import('@solana/web3.js').Keypair} options.keypair - Wallet keypair for signing
  * @returns {object} ExecutionResult
  */
-export async function executePrivateTrade(proposal, { keypair, maxSlippage } = {}) {
+export async function executePrivateTrade(proposal, { keypair } = {}) {
   const startTime = Date.now();
   executionLog.info(
     { proposalId: proposal.id, strategy: proposal.strategyType },
@@ -65,6 +58,13 @@ export async function executePrivateTrade(proposal, { keypair, maxSlippage } = {
     const decimals = getTokenDecimals(fromToken);
     const amountRaw = BigInt(Math.round(Number(proposal.amount) * 10 ** decimals));
 
+    if (fromToken !== toToken) {
+      throw new Error(
+        `Private execution currently supports shielding ${fromToken} only. ` +
+        `Requested swap ${fromToken} -> ${toToken} is not implemented on MagicBlock.`
+      );
+    }
+
     // Step 1: Ensure we have shielded balance
     let shieldedBalance = await client.getShieldedBalance(fromMint);
     executionLog.debug({ shieldedBalance: shieldedBalance.toString(), required: amountRaw.toString() }, 'Checking shielded balance');
@@ -79,31 +79,34 @@ export async function executePrivateTrade(proposal, { keypair, maxSlippage } = {
       shieldedBalance = await client.getShieldedBalance(fromMint);
 
       // Update local shield balance tracking
-      updateShieldBalance(keypair.publicKey.toBase58(), fromToken, shieldedBalance);
+      await updateShieldBalance(keypair.publicKey.toBase58(), fromToken, shieldedBalance);
+      await recordShieldTransaction({
+        type: 'deposit',
+        wallet: keypair.publicKey.toBase58(),
+        token: fromToken,
+        amount: amountRaw.toString(),
+        signature: depositSig,
+      });
     }
-
-    // Step 2: For now, we hold in shield (no DEX swap on ER yet)
-    // In a full implementation, this would call a DEX on the ephemeral rollup
-    // For demo purposes, we show the shielding worked
 
     executionLog.info({
       proposalId: proposal.id,
       shieldedBalance: shieldedBalance.toString(),
       depositSig,
       elapsed: Date.now() - startTime,
-    }, 'Private execution complete (shielded)');
+    }, 'Private shielding complete');
 
     // Record spend + cooldown
-    recordSpend(proposal.strategyId, Number(proposal.amount));
+    await recordSpend(proposal.strategyId, Number(proposal.amount));
     if (proposal.policies?.cooldownMs) {
-      setCooldown(proposal.strategyId, proposal.policies.cooldownMs);
+      await setCooldown(proposal.strategyId, proposal.policies.cooldownMs);
     }
 
     // Update DCA plan stats if applicable
     if (proposal.strategyType === 'dca' && proposal.strategyId) {
-      const plan = getDCAPlan(proposal.strategyId);
+      const plan = await getDCAPlan(proposal.strategyId);
       if (plan) {
-        updateDCAPlan(proposal.strategyId, {
+        await updateDCAPlan(proposal.strategyId, {
           totalExecuted: (plan.totalExecuted || 0) + 1,
           totalSpent: (plan.totalSpent || 0) + Number(proposal.amount),
         });
@@ -116,12 +119,11 @@ export async function executePrivateTrade(proposal, { keypair, maxSlippage } = {
       private: true,
       shieldedBalance: shieldedBalance.toString(),
       quote: {
-        estimatedOutput: proposal.amount, // For demo, same amount (no swap yet)
-        liquiditySource: 'MagicBlock Private Shield',
+        liquiditySource: depositSig ? 'MagicBlock shield deposit' : 'MagicBlock shielded balance',
       },
     });
 
-    logExecution(result);
+    await logExecution(result);
 
     // Emit execution event for bot notifications
     bus.emit('EXECUTION_COMPLETE', result);
@@ -142,7 +144,7 @@ export async function executePrivateTrade(proposal, { keypair, maxSlippage } = {
       private: true,
     });
 
-    logExecution(result);
+    await logExecution(result);
     bus.emit('EXECUTION_FAILED', result);
 
     return result;
@@ -169,7 +171,7 @@ export async function depositToShield(keypair, token, amount) {
   const balance = await client.getShieldedBalance(mint);
 
   // Update local tracking
-  updateShieldBalance(keypair.publicKey.toBase58(), token, balance);
+  await updateShieldBalance(keypair.publicKey.toBase58(), token, balance);
 
   return { signature: sig, balance };
 }
@@ -194,7 +196,7 @@ export async function withdrawFromShield(keypair, token, amount) {
   const balance = await client.getShieldedBalance(mint);
 
   // Update local tracking
-  updateShieldBalance(keypair.publicKey.toBase58(), token, balance);
+  await updateShieldBalance(keypair.publicKey.toBase58(), token, balance);
 
   return { signature: sig, balance };
 }
