@@ -69,7 +69,12 @@ describe('E2E: Real Transactions with Your API Keys', () => {
 
     const chainsData = await chainsResponse.json();
     assert.ok(Array.isArray(chainsData.data));
-    assert.ok(chainsData.data.find((chain) => chain.attributes.external_id === 'solana'));
+    const solanaChain = chainsData.data.find((chain) =>
+      chain.id === 'solana' ||
+      chain.attributes?.external_id === 'solana' ||
+      chain.attributes?.name?.toLowerCase().includes('solana')
+    );
+    assert.ok(solanaChain, 'Solana chain should be available');
 
     const walletResponse = await fetch(`https://api.zerion.io/v1/wallets/${walletAddress}`, {
       headers: {

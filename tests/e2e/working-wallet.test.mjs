@@ -127,7 +127,11 @@ describe("E2E: Working Wallet Test", () => {
       assert.ok(data.data, 'Should receive chains data');
       assert.ok(Array.isArray(data.data), 'Chains should be array');
       
-      const solanaChain = data.data.find(c => c.attributes.external_id === 'solana');
+      const solanaChain = data.data.find(c =>
+        c.id === 'solana' ||
+        c.attributes?.external_id === 'solana' ||
+        c.attributes?.name?.toLowerCase().includes('solana')
+      );
       assert.ok(solanaChain, 'Solana chain should be available');
       
       console.log(`[E2E WALLET] ✅ Zerion API connected - ${data.data.length} chains available`);
