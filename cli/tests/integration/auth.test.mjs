@@ -1,7 +1,8 @@
 // Live end-to-end tests for all 4 authorization modes.
 //
-// Each test skips individually unless its dedicated TEST_ env var is set:
-//   TEST_ZERION_API_KEY         — baseline apiKey path (no on-chain cost)
+// Each test skips individually unless its required credential is set:
+//   TEST_ZERION_API_KEY         — preferred baseline apiKey for this suite
+//   ZERION_API_KEY              — fallback baseline apiKey for the free Basic Auth case
 //   TEST_ZERION_EVM_KEY         — 0x-prefixed EVM key funded with USDC on Base
 //   TEST_ZERION_SOLANA_KEY      — base58 Solana key funded with USDC on Solana
 //   TEST_ZERION_TEMPO_KEY       — 0x-prefixed EVM key funded with USDC on Tempo
@@ -22,6 +23,7 @@
 //
 //   # apiKey (free — no on-chain payment)
 //   TEST_ZERION_API_KEY=<key> ZERION_API_BASE=http://localhost:8000/v1 node --test --test-name-pattern="apiKey" tests/integration/auth.test.mjs
+//   # or rely on an existing ZERION_API_KEY in your shell
 //
 //   # x402 on Base
 //   TEST_ZERION_EVM_KEY=0x... ZERION_API_BASE=http://localhost:8000/v1 node --test --test-name-pattern="x402 on Base" tests/integration/auth.test.mjs
@@ -88,8 +90,8 @@ const skipMsg = (envVar, desc) =>
 
 describe("auth — integration (each mode skips independently)", () => {
   describe("apiKey", () => {
-    const key = process.env.TEST_ZERION_API_KEY;
-    const skip = key ? false : "skip: set TEST_ZERION_API_KEY to run this test";
+    const key = process.env.TEST_ZERION_API_KEY || process.env.ZERION_API_KEY;
+    const skip = key ? false : "skip: set TEST_ZERION_API_KEY or ZERION_API_KEY to run this test";
     it("history via Basic Auth with ZERION_API_KEY", { skip }, async () => {
       const { code, stderr, json } = await runCli(HISTORY_ARGS, { ZERION_API_KEY: key });
       assert.equal(code, 0, `exit ${code}, stderr: ${stderr}`);
