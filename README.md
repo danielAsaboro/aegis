@@ -264,7 +264,169 @@ A six-minute end-to-end Telegram walkthrough (portfolio query → swap quote →
 Solscan tx hashes for the demo run are listed in `TRACKS.md`.
 
 ---
+|---------|-------------|---------|
+| `zerion sign-message <message> --chain <chain>` | Sign EIP-191 (EVM) or raw (Solana) message | `zerion sign-message "Login to dApp" --chain ethereum` |
+| `zerion sign-message <message> --encoding hex` | Treat message as hex bytes | `zerion sign-message 0xdeadbeef --encoding hex --chain ethereum` |
+| `zerion sign-typed-data --data '<json>'` | Sign EIP-712 typed data (EVM only) | `zerion sign-typed-data --data "$(cat permit.json)"` |
+| `zerion sign-typed-data --file <path>` | Read EIP-712 typed data from file | `zerion sign-typed-data --file permit.json` |
+| `cat typed.json \| zerion sign-typed-data` | Read EIP-712 typed data from stdin | `cat permit.json \| zerion sign-typed-data` |
 
+### Agent Tokens
+
+Scoped API tokens for unattended trading. Token auto-saves to config; required for `swap`, `bridge`, `send`.
+
+| Command | Description | Example |
+|---------|-------------|---------|
+| `zerion agent create-token --name <bot> --wallet <wallet>` | Create scoped token | `zerion agent create-token --name dca-bot --wallet trading-bot` |
+| `zerion agent list-tokens` | List active agent tokens | `zerion agent list-tokens` |
+| `zerion agent use-token --wallet <wallet>` | Switch active token by wallet | `zerion agent use-token --wallet trading-bot` |
+| `zerion agent revoke-token --name <bot>` | Revoke a token | `zerion agent revoke-token --name dca-bot` |
+
+### Agent Policies
+
+Restrict what an agent token can do — chains, expiry, transfers, approvals, allowlists.
+
+| Command | Description | Example |
+|---------|-------------|---------|
+| `zerion agent create-policy --name <policy>` | Create security policy (flags below) | `zerion agent create-policy --name safe-base --chains base --expires 24h --deny-transfers` |
+| `zerion agent list-policies` | List all policies | `zerion agent list-policies` |
+| `zerion agent show-policy <id>` | Show policy details | `zerion agent show-policy safe-base` |
+| `zerion agent delete-policy <id>` | Delete a policy | `zerion agent delete-policy safe-base` |
+
+Policy flags:
+
+| Flag | Description |
+|------|-------------|
+| `--chains <list>` | Restrict to specific chains (comma-separated) |
+| `--expires <duration>` | Token expiry (e.g. `24h`, `7d`) |
+| `--deny-transfers` | Block raw ETH/native transfers |
+| `--deny-approvals` | Block ERC-20 approval calls |
+| `--allowlist <addresses>` | Only allow listed contract/wallet addresses |
+
+### Watchlist
+
+Track wallets by name without exposing addresses in commands.
+
+| Command | Description | Example |
+|---------|-------------|---------|
+| `zerion watch <address> --name <label>` | Add wallet to watchlist | `zerion watch 0xFe89Cc7Abb2C4183683Ab71653c4cCd1b9cC194e --name ens-dao` |
+| `zerion watch list` | List watched wallets | `zerion watch list` |
+| `zerion watch remove <name>` | Remove from watchlist | `zerion watch remove ens-dao` |
+| `zerion analyze <name>` | Analyze a watched wallet by name | `zerion analyze ens-dao` |
+
+### Setup
+
+| Command | Description | Example |
+|---------|-------------|---------|
+| `zerion init` | One-shot onboarding — install CLI globally, configure API key, install agent skills | `zerion init` |
+| `zerion init -y --browser` | Non-interactive init that opens dashboard.zerion.io for the API key | `npx -y zerion-cli init -y --browser` |
+| `zerion setup skills` | Install Zerion agent skills into detected coding agents | `zerion setup skills` |
+| `zerion setup skills --agent claude-code` | Install into a specific agent | `zerion setup skills --agent claude-code` |
+
+### Configuration
+
+| Command | Description | Example |
+|---------|-------------|---------|
+| `zerion config set <key> <value>` | Set config (`apiKey`, `defaultWallet`, `defaultChain`, `slippage`) | `zerion config set defaultChain base` |
+| `zerion config unset <key>` | Remove a config value (resets to default) | `zerion config unset defaultChain` |
+| `zerion config list` | Show current configuration | `zerion config list` |
+
+## Global Flags
+
+| Flag | Description |
+|------|-------------|
+| `--wallet <name>` | Source wallet (default: from config) |
+| `--address <addr\|ens>` | Use raw address or ENS name |
+| `--watch <name>` | Use watched wallet by name |
+| `--chain <chain>` | Chain for analysis commands (default: `ethereum`) |
+| `--to-wallet <name>` | Destination wallet for `bridge` (Solana ↔ EVM) |
+| `--to-address <addr>` | Destination address for `bridge` (must match destination-chain format) |
+| `--positions all\|simple\|defi` | Filter positions type |
+| `--limit <n>` | Limit results (default: 20 for list ops) |
+| `--offset <n>` | Skip first N results (pagination) |
+| `--search <query>` | Filter wallets by name or address |
+| `--slippage <percent>` | Slippage tolerance (default: 2%) |
+| `--x402` | Pay-per-call on Base or Solana (analytics only) |
+| `--mpp` | Pay-per-call on Tempo (analytics only) |
+| `--json` | JSON output (default) |
+| `--pretty` | Human-readable output |
+| `--quiet` | Minimal output |
+
+## Environment Variables
+
+| Variable | Description |
+|----------|-------------|
+| `ZERION_API_KEY` | API key (get at [dashboard.zerion.io](https://dashboard.zerion.io)) |
+| `WALLET_PRIVATE_KEY` | Pay-per-call key. `0x...` → x402 on Base; `base58` → x402 on Solana; `0x...` also works for MPP |
+| `EVM_PRIVATE_KEY` | EVM key for x402 on Base (overrides `WALLET_PRIVATE_KEY` for EVM) |
+| `SOLANA_PRIVATE_KEY` | Solana key for x402 on Solana (overrides `WALLET_PRIVATE_KEY` for Solana) |
+| `TEMPO_PRIVATE_KEY` | EVM key for MPP on Tempo (overrides `WALLET_PRIVATE_KEY` for MPP) |
+| `ZERION_X402` | `true` enables x402 globally (analytics only) |
+| `ZERION_X402_PREFER_SOLANA` | `true` prefers Solana over Base when both keys set |
+| `ZERION_MPP` | `true` enables MPP globally (analytics only) |
+| `SOLANA_RPC_URL` | Custom Solana RPC endpoint |
+| `ETH_RPC_URL` | Custom Ethereum RPC endpoint (used for ENS resolution) |
+
+## Output
+
+All commands emit JSON to stdout (default) for agent compatibility. Errors emit JSON to stderr with a `code` field for programmatic handling. Use `--pretty` for human-readable output, `--quiet` for minimal.
+
+## Failure Modes
+
+The CLI handles:
+
+- missing or invalid API key
+- invalid wallet address or ENS resolution failure
+- unsupported chain filter
+- empty wallets / no positions
+- rate limits (HTTP 429)
+- upstream timeout or temporary unavailability
+
+All errors are emitted as structured JSON on stderr with a `code` field.
+
+## Development
+
+```bash
+npm install
+npm test                  # unit tests (fast, offline)
+npm run test:integration  # live API tests (requires ZERION_API_KEY, runs serially to avoid rate limits)
+npm run test:all          # both
+node ./cli/zerion.js --help
+```
+
+### Contribution guidelines
+
+- Keep examples copy-pasteable.
+- Prefer official Zerion naming and documented behavior.
+- Document real gaps instead of inventing interfaces.
+- Preserve JSON-first CLI output for agent compatibility.
+
+### Releasing to npm
+
+This repo uses [release-please](https://github.com/googleapis/release-please) for automated versioning and publishing.
+
+**Commit conventions** — use [Conventional Commits](https://www.conventionalcommits.org/) prefixes:
+
+- `feat:` — new feature → minor version bump
+- `fix:` — bug fix → patch version bump
+- `feat!:` or `fix!:` — breaking change → major version bump
+- `docs:`, `chore:`, `test:` — no release triggered
+
+**Release flow:**
+
+1. Merge `feat:` or `fix:` commits to `main`
+2. release-please opens/updates a release PR (`chore(main): release X.Y.Z`) with version bump and CHANGELOG
+3. Merge the release PR when ready to ship
+4. GitHub Release is created automatically → triggers `npm publish`
+
+To force a specific version, add `Release-As: 2.0.0` in a commit message body.
+
+**CI setup:**
+
+- `NPM_TOKEN` repo secret is required for npm publish (use a granular access token)
+- `.release-please-manifest.json` tracks the current version
+- `.github/workflows/release-please.yml` handles release PR creation and npm publish
+- `.github/workflows/test.yml` runs tests on PRs and pushes to main
 ## License
 
 MIT — see `LICENSE`.

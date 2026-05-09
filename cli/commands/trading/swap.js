@@ -1,5 +1,5 @@
 import { getSwapQuote, executeSwap } from "../../utils/trading/swap.js";
-import { requireAgentToken, parseTimeout, handleTradingError } from "../../utils/trading/guards.js";
+import { requireAgentToken, parseTimeout, parseSlippage, handleTradingError } from "../../utils/trading/guards.js";
 import { resolveWallet } from "../../utils/wallet/resolve.js";
 import { print, printError } from "../../utils/common/output.js";
 import { formatSwapQuote } from "../../utils/common/format.js";
@@ -63,7 +63,7 @@ export default async function swap(args, flags) {
       toChain: chain,
       walletAddress: address,
       outputReceiver: address,
-      slippage: flags.slippage ? parseFloat(flags.slippage) : undefined,
+      slippage: parseSlippage(flags.slippage),
     });
 
     if (quote.preconditions.enough_balance === false) {

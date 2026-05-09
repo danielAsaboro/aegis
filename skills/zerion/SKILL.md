@@ -74,6 +74,7 @@ export ZERION_MPP=true
 | Sign a message or EIP-712 typed data (no broadcast) | **`zerion-sign`** |
 | Create / import / list / backup / delete wallets | **`zerion-wallet`** |
 | Set up agent tokens + policies for autonomous trading | **`zerion-agent-management`** |
+| Discover / validate a crypto idea, map competitors, DeFi TVL research | **`zerion-sendai-ideas`** (partner skill, adapted from sendaifun/solana-new) |
 
 ## Output contract
 

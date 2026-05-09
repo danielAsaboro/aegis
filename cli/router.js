@@ -134,10 +134,17 @@ function printUsage() {
       "studio --port <n>": "Bind studio on a specific port (default 7474)",
       "studio --no-open": "Don't auto-launch the browser",
     },
+    // Trading-supported chains (swap/bridge/send). Mirrors Zerion API
+    // /chains/ flags.supports_trading=true at time of release. For the live
+    // list, run `zerion chains` — that hits the API and is always current.
     chains: [
-      "ethereum", "base", "arbitrum", "optimism", "polygon",
-      "binance-smart-chain", "avalanche", "gnosis", "scroll",
-      "linea", "zksync-era", "zora", "blast", "solana"
+      "abstract", "ape", "arbitrum", "avalanche", "base", "berachain",
+      "binance-smart-chain", "blast", "bob", "celo", "cyber", "ethereum",
+      "fraxtal", "hyperevm", "ink", "katana", "lens", "linea", "lisk",
+      "manta-pacific", "mantle", "megaeth", "metis-andromeda", "mode",
+      "monad", "opbnb", "optimism", "plasma", "polygon", "rari", "ronin",
+      "scroll", "sei", "solana", "soneium", "sonic", "swellchain", "taiko",
+      "tomochain", "unichain", "world", "xdai", "zero", "zksync-era", "zora",
     ],
   };
   process.stdout.write(JSON.stringify(usage, null, 2) + "\n");

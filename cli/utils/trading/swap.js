@@ -72,10 +72,8 @@ async function hasSufficientAllowance({ zerionChainId, approveTx, owner }) {
   }
 }
 
-/**
- * Get a swap/bridge quote from Zerion API.
- */
-export async function getSwapQuote({
+// Build the /swap/quotes/ params and resolve the from/to tokens once.
+async function buildQuoteRequest({
   fromToken,
   toToken,
   amount,
@@ -100,44 +98,24 @@ export async function getSwapQuote({
     "slippage_percent": slippage ?? getConfigValue("slippage") ?? DEFAULT_SLIPPAGE,
   };
 
-  // Cross-chain destinations are passed as the top-level `to` param, NOT
-  // `output[to]`. /swap/quotes/ defaults `to` to `from` when omitted, which
-  // breaks Solana ↔ EVM bridges (chain types don't match). Always send `to`
-  // when we have one different from `from`.
-  if (outputReceiver && outputReceiver !== walletAddress) {
-    params.to = outputReceiver;
-  }
+  // The /swap/quotes/ endpoint requires `to` on every request — it used to
+  // default to `from` when omitted, but the API now rejects with
+  // "'to' is required". Always send it. For same-wallet bridges this is
+  // the source signer's address on the destination chain (resolved by
+  // resolveDestination upstream); for Solana ↔ EVM it's the user-provided
+  // receiver. Receivers must be passed at the top level, NOT `output[to]`.
+  params.to = outputReceiver || walletAddress;
 
-  const response = await api.getSwapQuotes(params);
-  const offers = response.data || [];
+  return { params, fromResolved, toResolved };
+}
 
-  if (offers.length === 0) {
-    const err = new Error(
-      `No swap route found for ${amount} ${fromResolved.symbol} → ${toResolved.symbol} on ${fromChain}. ` +
-      `Minimum swap is ~$1. ` +
-      `Check your balance and chain with: zerion portfolio`
-    );
-    err.code = "no_route";
-    err.suggestion = `Try a smaller amount or different pair: zerion swap ${fromChain} 0.001 ETH USDC`;
-    throw err;
-  }
-
-  // Pick the first offer that has executable transaction data. The API may
-  // return offers with `error` set (e.g. not_enough_input_asset_balance) —
-  // those carry no transaction_swap and aren't actionable.
-  const executable = offers.find((o) => {
-    const a = o.attributes || {};
-    if (a.error) return false;
-    return Boolean(a.transaction_swap?.evm || a.transaction_swap?.solana);
-  });
-  const best = executable || offers[0];
-  const attrs = best.attributes || {};
-
-  // Surface the API's blocking error before downstream code tries to sign.
+// Shape an API offer into our internal quote object. Heavy enough to share
+// between single-quote selection and the offers-list view.
+function offerToQuote(offer, { fromResolved, toResolved, fromChain, toChain, amount, walletAddress, outputReceiver }) {
+  const attrs = offer.attributes || {};
   const blocking = attrs.error;
-
   return {
-    id: best.id,
+    id: offer.id,
     from: fromResolved,
     to: toResolved,
     inputAmount: amount,
@@ -150,8 +128,6 @@ export async function getSwapQuote({
       networkAmount: attrs.network_fee?.amount?.quantity,
     },
     liquiditySource: attrs.liquidity_source?.name,
-    // Translate the new error shape into the boolean preconditions our
-    // commands check before signing.
     preconditions: {
       enough_balance: blocking?.code !== "not_enough_input_asset_balance",
     },
@@ -164,6 +140,157 @@ export async function getSwapQuote({
     outputReceiver: outputReceiver || walletAddress,
     slippageType: attrs.slippage?.final ? "absolute" : undefined,
   };
+}
+
+function isExecutable(offer) {
+  const a = offer.attributes || {};
+  if (a.error) return false;
+  return Boolean(a.transaction_swap?.evm || a.transaction_swap?.solana);
+}
+
+// Offer selection strategies — operate on RAW API offers (`offer.attributes…`).
+//   "cheapest": highest net `output_amount` (matches API's default sort).
+//   "fast":     lowest `estimated_time_seconds`. Offers with no time data
+//               fall back to "cheapest" ordering.
+// Both strategies prefer executable offers; non-executable offers (e.g.
+// `error: not_enough_input_asset_balance`) only win when nothing else is
+// available so the caller can surface the blocking error.
+export function selectOffer(offers, strategy = "cheapest") {
+  if (!offers.length) return null;
+
+  const executable = offers.filter(isExecutable);
+  const pool = executable.length ? executable : offers;
+
+  if (strategy === "fast") {
+    const timed = pool.filter((o) => Number.isFinite(o.attributes?.estimated_time_seconds));
+    if (timed.length) {
+      return timed.reduce((best, o) =>
+        o.attributes.estimated_time_seconds < best.attributes.estimated_time_seconds ? o : best
+      );
+    }
+    // No time data on any offer — fall through to cheapest.
+  }
+
+  // "cheapest" — pick max output_amount.quantity. parseFloat returns NaN for
+  // non-numeric strings; treat any non-finite (NaN, Infinity, missing) as
+  // ineligible so a malformed first offer can't anchor the reducer and beat
+  // every later candidate.
+  const numericOut = (o) => {
+    const n = parseFloat(o.attributes?.output_amount?.quantity);
+    return Number.isFinite(n) ? n : -Infinity;
+  };
+  return pool.reduce((best, o) => (numericOut(o) > numericOut(best) ? o : best));
+}
+
+// True iff the quote can be signed and broadcast: no API-side blocking
+// error AND a transaction payload is present. `bridge` reuses this so the
+// "executable" flag in list-mode output matches what `pickOffer` would
+// actually select — otherwise a no-error/no-tx offer would render as
+// `ready` and silently get skipped at execution time.
+export function isQuoteExecutable(quote) {
+  if (!quote || quote.blocking != null) return false;
+  return Boolean(quote.transactionSwap || quote.transactionSwapSolana);
+}
+
+// Mapped-quote selection — same strategy semantics as selectOffer, but works
+// on the post-`offerToQuote` shape so callers (`bridge`) don't have to refetch
+// the API to get a single quote after listing offers.
+//
+// Selection order:
+//   1. If any executable quote exists → pick from those by strategy.
+//   2. Else if any blocked quote has a real API error → return the
+//      highest-output one so executeSwap can surface that error message.
+//   3. Else (only no-tx / no-error quotes) → return null. The caller
+//      treats this as no_route, which is correct: nothing in the response
+//      is signable AND nothing in the response carries actionable info.
+export function pickOffer(quotes, strategy = "cheapest") {
+  if (!quotes.length) return null;
+
+  const out = (q) => {
+    const n = parseFloat(q.estimatedOutput);
+    return Number.isFinite(n) ? n : -Infinity;
+  };
+
+  const executable = quotes.filter(isQuoteExecutable);
+  if (executable.length) {
+    if (strategy === "fast") {
+      const timed = executable.filter((q) => Number.isFinite(q.estimatedSeconds));
+      if (timed.length) {
+        return timed.reduce((best, q) => (q.estimatedSeconds < best.estimatedSeconds ? q : best));
+      }
+    }
+    return executable.reduce((best, q) => (out(q) > out(best) ? q : best));
+  }
+
+  // No executable quotes — surface the best blocked-with-error candidate so
+  // executeSwap throws a meaningful message. If even that's missing (no
+  // executable AND no blocking error), there is nothing signable here and
+  // the caller should treat it as a routing failure.
+  const informative = quotes.filter((q) => q.blocking != null);
+  if (!informative.length) return null;
+  return informative.reduce((best, q) => (out(q) > out(best) ? q : best));
+}
+
+function noRouteError(amount, fromResolved, toResolved, fromChain) {
+  const err = new Error(
+    `No swap route found for ${amount} ${fromResolved.symbol} → ${toResolved.symbol} on ${fromChain}. ` +
+    `Minimum swap is ~$1. ` +
+    `Check your balance and chain with: zerion portfolio`
+  );
+  err.code = "no_route";
+  err.suggestion = `Try a smaller amount or different pair: zerion swap ${fromChain} 0.001 ETH USDC`;
+  return err;
+}
+
+/**
+ * Get a single swap/bridge quote, picked by strategy ("cheapest" | "fast").
+ * "cheapest" is the legacy default — matches the API's first-offer ordering
+ * and never changes behavior for existing callers.
+ */
+export async function getSwapQuote(input) {
+  const strategy = input.strategy || "cheapest";
+  const { params, fromResolved, toResolved } = await buildQuoteRequest(input);
+  const response = await api.getSwapQuotes(params);
+  const offers = response.data || [];
+
+  if (offers.length === 0) {
+    throw noRouteError(input.amount, fromResolved, toResolved, input.fromChain);
+  }
+
+  const picked = selectOffer(offers, strategy);
+  return offerToQuote(picked, {
+    fromResolved,
+    toResolved,
+    fromChain: input.fromChain,
+    toChain: input.toChain,
+    amount: input.amount,
+    walletAddress: input.walletAddress,
+    outputReceiver: input.outputReceiver,
+  });
+}
+
+/**
+ * List ALL swap/bridge offers without picking one. Used by `zerion bridge`
+ * (no flag) so the agent can compare providers before committing.
+ */
+export async function getSwapOffers(input) {
+  const { params, fromResolved, toResolved } = await buildQuoteRequest(input);
+  const response = await api.getSwapQuotes(params);
+  const offers = response.data || [];
+
+  if (offers.length === 0) {
+    throw noRouteError(input.amount, fromResolved, toResolved, input.fromChain);
+  }
+
+  return offers.map((o) => offerToQuote(o, {
+    fromResolved,
+    toResolved,
+    fromChain: input.fromChain,
+    toChain: input.toChain,
+    amount: input.amount,
+    walletAddress: input.walletAddress,
+    outputReceiver: input.outputReceiver,
+  }));
 }
 
 /**
