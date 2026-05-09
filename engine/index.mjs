@@ -10,7 +10,7 @@
 // Sub-route `aegis mcp` — STDIO MCP server exposing the AEGIS tool catalog
 // to MCP clients (Codex CLI, Claude Code, Cursor, ...). No bot env vars needed.
 if (process.argv[2] === 'mcp') {
-  const { default: mcpCmd } = await import('../commands/mcp.js');
+  const { default: mcpCmd } = await import('../cli/commands/mcp.js');
   await mcpCmd(process.argv.slice(3));
   process.exit(0);
 }
@@ -51,8 +51,8 @@ if (process.argv[2] === 'chat') {
   // Route logs to stderr so they don't pollute the chat conversation on stdout.
   process.env.AEGIS_LOG_STDERR = '1';
   const rest = process.argv.slice(3);
-  const { default: chatCmd } = await import('../commands/chat.js');
-  const { parseFlags } = await import('../utils/common/flags.js');
+  const { default: chatCmd } = await import('../cli/commands/chat.js');
+  const { parseFlags } = await import('../cli/utils/common/flags.js');
   const { rest: positional, flags } = parseFlags(rest);
   await chatCmd(positional, flags);
   process.exit(0);
@@ -72,8 +72,8 @@ const { initDb } = await import('./db/index.mjs');
 const { createBot, setupNotifications } = await import('./bot/index.mjs');
 const { startAllMonitors, stopAllMonitors } = await import('./monitors/index.mjs');
 const { startAllStrategies, stopAllStrategies } = await import('./strategies/index.mjs');
-const { getEvmAddress, getSolAddress } = await import('../utils/wallet/keystore.js');
-const { isSolana } = await import('../utils/chain/registry.js');
+const { getEvmAddress, getSolAddress, importFromKey, createWallet } = await import('../cli/utils/wallet/keystore.js');
+const { isSolana } = await import('../cli/utils/chain/registry.js');
 
 async function main() {
   logger.info('═══════════════════════════════════════════════');
@@ -106,17 +106,36 @@ async function main() {
     }
   }
 
-  // ─── 2. Resolve wallet ────────────────────────────────────────────────
-  const walletName = env.DEFAULT_WALLET || 'default';
+  // ─── 2. Resolve wallet — auto-provision if missing ───────────────────
+  const walletName = env.DEFAULT_WALLET || 'main';
   let walletAddress;
   try {
     walletAddress = isSolana(env.DEFAULT_CHAIN)
       ? getSolAddress(walletName)
       : getEvmAddress(walletName);
     logger.info({ wallet: walletName, address: walletAddress, chain: env.DEFAULT_CHAIN }, 'Wallet resolved');
-  } catch (err) {
-    logger.warn({ err: err.message }, 'Wallet resolution failed — bot will start but trading needs a wallet');
-    walletAddress = null;
+  } catch {
+    // Wallet doesn't exist — provision it now, no human needed.
+    logger.info({ wallet: walletName }, 'Wallet not found — auto-provisioning');
+    try {
+      let provisioned;
+      if (process.env.SOLANA_PRIVATE_KEY) {
+        // Import the same key already used for MagicBlock so both surfaces
+        // share one address. Empty passphrase = unencrypted at rest; security
+        // comes from filesystem permissions on the OWS keystore.
+        provisioned = importFromKey(walletName, process.env.SOLANA_PRIVATE_KEY, '', 'solana');
+        logger.info({ wallet: walletName, address: provisioned.solAddress }, 'Wallet imported from SOLANA_PRIVATE_KEY');
+      } else {
+        // No existing key — generate a fresh Solana wallet and log the address
+        // so the operator can fund it.
+        provisioned = createWallet(walletName, '');
+        logger.info({ wallet: walletName, address: provisioned.solAddress }, 'Fresh wallet generated — fund this address to enable trading');
+      }
+      walletAddress = provisioned.solAddress;
+    } catch (provisionErr) {
+      logger.warn({ err: provisionErr.message }, 'Wallet provisioning failed — bot will start but trading needs a wallet');
+      walletAddress = null;
+    }
   }
 
   // Note: MagicBlock private execution requires keypair access

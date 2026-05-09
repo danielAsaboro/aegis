@@ -8,7 +8,7 @@
 
 import { tool } from 'ai';
 import { z } from 'zod';
-import { listWallets, getWallet } from '../../../utils/wallet/keystore.js';
+import { listWallets, getWallet } from '../../../cli/utils/wallet/keystore.js';
 
 export const listWalletsTool = tool({
   description: 'List all wallets known to the OWS keystore (name, EVM address, Solana address, creation timestamp).',

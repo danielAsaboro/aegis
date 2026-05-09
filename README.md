@@ -1,6 +1,8 @@
 # AEGIS
 
-**AEGIS is an autonomous onchain trading agent.** Talk to it in natural language; it reasons with Claude or GPT, calls Zerion CLI commands as tools, and every value-moving action runs through a scoped policy engine before signing. Built for the Frontier *"Build an Autonomous Onchain Agent using Zerion CLI"* track.
+**AEGIS is a self-provisioning autonomous onchain trading agent.** Talk to it in natural language over Telegram or the CLI; it reasons through your ChatGPT subscription (Codex CLI) or a fully local QVAC LLM, calls Zerion CLI commands as tools, and every value-moving action runs through a scoped, fail-closed policy engine before signing. On first boot it creates its own wallet — no manual setup needed.
+
+Built for the Frontier *"Build an Autonomous Onchain Agent using Zerion CLI"* track.
 
 ```text
 You:  what's my portfolio?
@@ -8,7 +10,6 @@ AEGIS: → getPortfolio()
        Total: $1,847.32 (+1.4% 24h)
         SOL    8.21 ($1,612)
         USDC   234.99
-        ...
 
 You:  swap 0.01 SOL to USDC
 AEGIS: → getSwapQuote()
@@ -16,6 +17,10 @@ AEGIS: → getSwapQuote()
        Approve? [y/N] y
        → executeSwap()  (policies passed: spend-limit, cooldown)
        ✅ Tx: https://solscan.io/tx/4xK2…ZqVk
+
+You:  set a DCA — buy $5 SOL every 30 minutes
+AEGIS: → commitMission() → createDCAPlan()
+       ✅ DCA scheduled. Policy cap: $25/tick, $100/day.
 ```
 
 ---
@@ -25,28 +30,26 @@ AEGIS: → getSwapQuote()
 ```bash
 git clone <this-repo> && cd aegis
 cp .env.example .env
-# Edit .env — set TELEGRAM_BOT_TOKEN, ZERION_API_KEY
-# For the LLM: install Codex CLI (ChatGPT subscription) OR run `pnpm qvac:download` (local).
+# Edit .env — set TELEGRAM_BOT_TOKEN, ZERION_API_KEY, SOLANA_PRIVATE_KEY
 pnpm install
-pnpm db:push          # create the SQLite DB (~/.zerion/aegis.db by default)
-pnpm start            # boots Telegram bot + monitors + strategies + agent
+pnpm db:push
+node engine/index.mjs --start   # bot + monitors + strategies, self-provisions wallet on first run
 # OR
-node engine/index.mjs chat   # CLI REPL: talk to the agent locally
+node engine/index.mjs chat      # CLI REPL — no bot env vars needed
 ```
 
 Requires Node.js ≥ 20.
 
-### LLM access — subscription or local, never API-key
+**First boot is zero-touch.** If the wallet named in `DEFAULT_WALLET` (default: `main`) doesn't exist in the OWS keystore, the engine imports it from `SOLANA_PRIVATE_KEY` automatically — or generates a fresh keypair if none is set. The wallet persists across restarts; provisioning only runs once.
 
-AEGIS deliberately does **not** support API-key billed providers.
-Routing the agent through a metered key would charge the wrong party for
-autonomy and re-introduce the cloud dependency the QVAC integration is
-built to remove. Two paths only:
+### LLM access — subscription or local, never an API key
 
-- **`codex/default`** — drives [Codex CLI](https://developers.openai.com/codex/cli) as the language-model backend for AEGIS; uses your **ChatGPT subscription** (`codex login` once). Default. No keys.
-- **`qvac/local`** — fully on-device LLM via the Bare-runtime QVAC sidecar (`@qvac/llm-llamacpp`). Run `pnpm qvac:download` and set `QVAC_LLM_MODEL_PATH`. No keys, no cloud round-trips.
+AEGIS deliberately rejects API-key billed providers. Routing the agent through a metered key charges the wrong party and reintroduces the cloud dependency the QVAC integration removes. Two paths only:
 
-Switch at runtime with `/agent model <id>` (Telegram) or `:model <id>` (CLI REPL).
+- **`codex/default`** — drives [Codex CLI](https://developers.openai.com/codex/cli) as the language-model backend; uses your **ChatGPT subscription** (`codex login` once). Default. No keys.
+- **`qvac/local`** — fully on-device LLM via the Bare-runtime QVAC sidecar (`@qvac/llm-llamacpp`). Run `pnpm qvac:download` and set `QVAC_LLM_MODEL_PATH`. No keys, no cloud.
+
+Switch at runtime: `/agent model <id>` (Telegram) or `:model <id>` (CLI REPL).
 
 ### Required env
 
@@ -54,54 +57,203 @@ Switch at runtime with `/agent model <id>` (Telegram) or `:model <id>` (CLI REPL
 |---|---|
 | `TELEGRAM_BOT_TOKEN` | From [@BotFather](https://t.me/BotFather). Required to launch the bot. |
 | `ZERION_API_KEY` | From [dashboard.zerion.io](https://dashboard.zerion.io). Powers portfolio + swap quotes. |
+| `SOLANA_PRIVATE_KEY` | JSON byte-array `[b0,b1,…,b63]` or base58 secret key. Used for MagicBlock private execution and auto-provisioned as the `main` wallet on first boot. |
 
 ### Optional env
 
 | Variable | Default | What for |
 |---|---|---|
-| `AEGIS_AGENT_MODEL` | `codex/default` | Active model. Switch with `/agent model <id>` at runtime. |
-| `CODEX_BIN` | `codex` | Path to the Codex CLI binary; defaults to `$PATH` lookup. |
+| `AEGIS_AGENT_MODEL` | `codex/default` | Active LLM. Switch with `/agent model` at runtime. |
 | `AEGIS_AGENT_AUTONOMY` | `advisory` | `off` / `advisory` (LLM proposes, human approves) / `autonomous`. |
 | `AEGIS_AGENT_MAX_INVOCATIONS_PER_HOUR` | `20` | Hard cap on agent turns per user/strategy. |
-| `AEGIS_AGENT_SIGNAL_COOLDOWN_MS` | `300000` | Min ms between agent reactions to the same signal type. |
-| `HELIUS_API_KEY` | — | Better whale data on Solana. |
-| `SOLANA_PRIVATE_KEY` | — | Required for MagicBlock private execution (shield deposit/withdraw). |
-| `PRIVACY_MODE` / `PRIVACY_THRESHOLD_USD` / `PRIVACY_TOKENS` | `auto` / `100` / `SOL,USDC` | Routing rules for private execution. |
+| `DEFAULT_WALLET` | `main` | OWS keystore wallet name. Auto-created on first boot. |
+| `PRIVACY_MODE` / `PRIVACY_THRESHOLD_USD` / `PRIVACY_TOKENS` | `auto` / `100` / `SOL,USDC` | Routing rules for MagicBlock private execution. |
+| `HELIUS_API_KEY` | — | Richer whale data on Solana. |
 
-### QVAC (local-first AI)
+---
 
-AEGIS integrates [Tether QVAC](https://docs.qvac.tether.io) for fully on-device
-embeddings, speech-to-text, text-to-speech, and (optionally) the LLM itself —
-your trading history, your voice, your keys never leave the machine.
+## Architecture
 
-```bash
-pnpm qvac:download           # fetch real model artifacts (~1.4 GB total)
-pnpm db:push                 # apply the new embedding tables
-pnpm qvac:backfill           # embed existing AgentFact / AgentToolCall rows
+```
+┌────────────────────────────────────────────────────────┐
+│  LLM agent  (Vercel AI SDK 6  ToolLoopAgent)           │  ← engine/agent
+│   • system prompt + tool registry (34 tools)           │
+│   • per-user message memory  (Prisma)                  │
+│   • per-user invocation budget                         │
+└──────────────────────┬─────────────────────────────────┘
+                       │ tool calls
+┌──────────────────────▼─────────────────────────────────┐
+│  AEGIS engine                                          │  ← engine/
+│   • policies   (spend-limit · cooldown · price-guard   │
+│                 time-window · consensus · privacy)     │
+│   • strategies (DCA · dip-buyer · take-profit ·        │
+│                 rebalancer · group-consensus · agent)  │
+│   • monitors   (price · portfolio · whale · scheduler) │
+│   • execution  (Zerion swap router · MagicBlock        │
+│                 private ephemeral rollup)              │
+└──────────────────────┬─────────────────────────────────┘
+                       │ signed transactions
+┌──────────────────────▼─────────────────────────────────┐
+│  Zerion CLI  (extended)                                │  ← cli/
+│   wallet keystore (OWS) · swap · bridge · analytics   │
+└────────────────────────────────────────────────────────┘
 ```
 
-Then add the printed paths to `.env` and flip the feature flags:
+Two surfaces share the same `runAgentTurn()` core, tool registry, and policy gate:
+
+- **Telegram** — `engine/bot/handlers/chat.mjs`. Plain text → agent. Inline Approve/Deny keyboards for every value-moving action. `/agent model`, `/agent autonomy`, `/agent reset`.
+- **CLI** — `aegis chat` (REPL) or `aegis chat "<prompt>"` (one-shot). No bot env required.
+
+---
+
+## Policy engine
+
+Every trade, DCA tick, and shield deposit goes through `engine/policies/engine.mjs:runPolicies` before a transaction is ever built. The gate is **fail-closed** — empty policy config throws `MissingPolicyConfigError`, proposals without a passing `policyResult` are refused at the executor, and there is no bypass flag.
+
+Six built-in policies:
+
+| Policy | What it checks |
+|---|---|
+| `spend-limit` | Per-tick, daily, and total USD caps per strategy |
+| `cooldown` | Minimum interval between trades per strategy |
+| `time-window` | Restrict execution to configured UTC hours |
+| `price-guard` | Max slippage and absolute price bounds |
+| `consensus` | Require N-of-M Telegram votes for large trades |
+| `privacy` | Route trades above threshold through MagicBlock |
+
+Run `aegis judge-trace` for a single-screen proof of every policy decision path (no money moved).
+
+---
+
+## Tool surface (34 tools)
+
+Canonical list: `engine/agent/tools/index.mjs:allTools`.
+
+| Group | Tools |
+|---|---|
+| Portfolio (read) | `getPortfolio`, `getPositions`, `getPnl`, `getHistory` |
+| Market (read) | `getTokenPrice`, `searchToken`, `listChains` |
+| Swap | `getSwapQuote`, **`executeSwap`** *(approval + policy gate)* |
+| DCA | **`createDCAPlan`** *(approval)*, `listDCAPlans`, `pauseDCAPlan`, `cancelDCAPlan` |
+| Policy (read) | `listAvailablePolicies`, `showActivePolicies`, `getDefaultPoliciesForStrategy` |
+| Shield (MagicBlock) | `getShieldBalance`, **`depositToShield`** *(approval)*, **`withdrawFromShield`** *(approval)* |
+| Wallet (read) | `listWallets`, `getWalletAddresses` |
+| Agent memory | `rememberFact`, `recallFacts`, `forgetFact`, `listFacts` |
+| QVAC RAG | `searchFacts`, `searchTradeHistory`, `summarizeSimilarTrades` |
+| Missions | **`commitMission`** *(approval)*, `listMissions`, `getMissionStatus`, `pauseMission`, `resumeMission`, `cancelMission` |
+
+Destructive credential ops (wallet create/import, agent token create/revoke) are intentionally human-only and not exposed to the LLM.
+
+---
+
+## MagicBlock private execution
+
+Trades above `PRIVACY_THRESHOLD_USD` (default $100) or involving tokens in `PRIVACY_TOKENS` (default `SOL,USDC`) are routed through MagicBlock's ephemeral rollup instead of broadcasting directly to Solana mainnet.
+
+```
+deposit → delegateSpl (ephemeral rollup) → private transfer → withdraw
+```
+
+The `deposit()` path handles native SOL automatically — it wraps SOL to WSOL, creates the associated token account idempotently, then delegates to the rollup via the SDK's `delegateSpl`. No manual account setup required.
+
+Devnet validator: `MAS1Dt9qreoRMQ14YQuhg8UTZMMzDdKhmkZMECCzk57` (resolved live from `getIdentity` on `https://devnet.magicblock.app`).
+
+---
+
+## Testing
+
+```bash
+pnpm test:unit                  # 160+ unit tests — policy gate, agent tools, missions, strategies
+pnpm test:e2e                   # 46 e2e tests — requires ZERION_API_KEY + SOLANA_PRIVATE_KEY + devnet SOL
+node --env-file=.env --test tests/e2e/solana-swap-surfpool.test.mjs  # Zerion swap signed + broadcast locally
+```
+
+### End-to-end coverage (46/46)
+
+| Suite | What it exercises |
+|---|---|
+| `aegis.e2e` | Engine boot, policy approval, DCA storage, consensus voting, shield store |
+| `dca-strategy` | Plan lifecycle, scheduler sync, policy gate, Prisma persistence across restart |
+| `group-consensus` | N-of-M vote accumulation, expiry, cross-restart persistence |
+| `privacy-trading` | Privacy routing, real MagicBlock deposit (WSOL wrap → delegate), ephemeral transfer |
+| `signal-automation` | Alert persistence, event bus, DipBuyer/TakeProfit/Rebalancer strategy evaluation |
+| `minimal-real` | Live Zerion API (64 chains), Telegram bot, Solana devnet, MagicBlock connectivity |
+| `working-wallet` | Keypair, balance, env coverage |
+| `solana-swap-surfpool` | Zerion SOL→USDC quote → sign → broadcast on surfpool local simulation |
+
+### Local Solana swap simulation (surfpool)
+
+The swap e2e test runs entirely locally — no mainnet exposure:
+
+1. Starts `surfpool` cloning mainnet state, airdrops the test wallet
+2. Fetches a live Zerion swap quote (SOL→USDC)
+3. Signs the returned transaction with the keypair from `SOLANA_PRIVATE_KEY`
+4. Broadcasts to surfpool and asserts a txHash
+
+```bash
+node --env-file=.env --test tests/e2e/solana-swap-surfpool.test.mjs
+```
+
+---
+
+## Track requirements — evidence
+
+| Requirement | Where it lives |
+|---|---|
+| LLM-driven agent (Vercel AI SDK 6) | `engine/agent/index.mjs:runAgentTurn` |
+| Tool registry wrapping Zerion CLI | `engine/agent/tools/*.mjs` — 34 tools |
+| Real onchain swap | `engine/agent/tools/swap.mjs:executeSwap` → `engine/execution/executor.mjs:executeTrade` |
+| Policy gate (fail-closed) | `engine/policies/engine.mjs:runPolicies` — throws on empty config |
+| No-bypass guarantee | `engine/execution/executor.mjs` — refuses proposals without passing `policyResult` |
+| No-bypass tests | `tests/unit/policies/no-bypass.test.mjs`, `tests/unit/agent/no-bypass.test.mjs` |
+| Tool contract test | `tests/unit/agent/tool-contract.test.mjs` |
+| Human-in-the-loop approval | `engine/agent/tools/swap.mjs` (`needsApproval: true`) + Telegram inline keyboards |
+| Autonomous signal reactions | `engine/strategies/agent.mjs:AgentStrategy` |
+| MagicBlock private execution | `engine/execution/private-executor.mjs` + `engine/lib/magicblock/client.mjs` |
+| Self-provisioning wallet | `engine/index.mjs:main` — imports or generates wallet on first boot |
+
+---
+
+## Multi-model
+
+```bash
+AEGIS_AGENT_MODEL=codex/default node engine/index.mjs --start
+AEGIS_AGENT_MODEL=qvac/local    node engine/index.mjs --start
+```
+
+Or live-switch without restarting:
+
+```
+/agent model codex/default
+/agent model qvac/local
+```
+
+Same prompt, same tools, same policy gate across providers. API-key billed routes (`openai/*`, `anthropic/*`) are explicitly rejected — see `engine/agent/resolve-model.mjs`.
+
+---
+
+## QVAC (local-first AI) — Tether QVAC side prize
+
+AEGIS integrates [Tether QVAC](https://docs.qvac.tether.io) for fully on-device embeddings, speech-to-text, text-to-speech, and the LLM itself — your trading history, voice, and keys never leave the machine.
+
+```bash
+pnpm qvac:download     # fetch model artifacts (~1.4 GB)
+pnpm db:push           # apply embedding tables
+pnpm qvac:backfill     # embed existing AgentFact / AgentToolCall rows
+```
 
 | Variable | What for |
 |---|---|
-| `QVAC_ENABLE_RAG` | Turn on `searchFacts` / `searchTradeHistory` / `summarizeSimilarTrades`. |
-| `QVAC_ENABLE_VOICE` | Accept Telegram voice notes; CLI `chat --audio` flag. |
-| `QVAC_EMBED_MODEL_PATH` | GGUF embedding model (e.g. `nomic-embed-text-v1.5.Q8_0.gguf`). |
-| `QVAC_WHISPER_MODEL_PATH` | GGML whisper.cpp model (e.g. `ggml-tiny.en.bin`). |
-| `QVAC_TTS_MODEL_DIR` | Directory containing the ONNX TTS bundle. |
-| `QVAC_LLM_MODEL_PATH` | GGUF chat model — enables the `qvac/local` first-class provider. |
+| `QVAC_ENABLE_RAG` | Enable `searchFacts` / `searchTradeHistory` / `summarizeSimilarTrades` |
+| `QVAC_ENABLE_VOICE` | Accept Telegram voice notes; CLI `chat --audio` flag |
+| `QVAC_EMBED_MODEL_PATH` | GGUF embedding model |
+| `QVAC_WHISPER_MODEL_PATH` | GGML whisper.cpp model |
+| `QVAC_TTS_MODEL_DIR` | ONNX TTS bundle directory |
+| `QVAC_LLM_MODEL_PATH` | GGUF chat model — enables `qvac/local` provider |
 
-When a model is missing, the affected tool raises `QvacUnavailableError`
-and the agent falls back to the non-semantic paths (`recallFacts`,
-`getHistory`); nothing silently substitutes a cloud API.
+When a model is missing, the affected tool raises `QvacUnavailableError` and the agent falls back gracefully. Nothing silently substitutes a cloud API.
 
-**Architecture note:** the QVAC native bindings only run on the [Bare
-runtime](https://github.com/holepunchto/bare). AEGIS runs under Node.js
-(Prisma, Telegraf, ai-sdk, Solana SDKs all assume Node), so we spawn a
-short-lived **Bare sidecar subprocess** that holds the QVAC models and
-speaks line-delimited JSON-RPC over stdio. Both halves run real
-packages on the runtimes they were built for — no shims, no mocks. See
-`engine/qvac/sidecar/`.
+**Architecture note:** QVAC native bindings run on the [Bare runtime](https://github.com/holepunchto/bare). AEGIS runs under Node.js, so we spawn a short-lived Bare sidecar subprocess holding the QVAC models and speaking line-delimited JSON-RPC over stdio. Both halves run real packages on the runtimes they were built for — no shims. See `engine/qvac/sidecar/`.
 
 ```text
 You: 🎙️ "buy 50 USDC of SOL like last Tuesday"
@@ -118,148 +270,22 @@ AEGIS:
 
 ## Studio — local browser UI
 
-Open `AEGIS Studio`, a hand-drawn whiteboard view of every signal,
-strategy, agent run, trade, and log line in one localhost-bound page.
-
 ```bash
-zerion studio                     # launches on http://127.0.0.1:7474
-# or directly:
-aegis --studio
-aegis --studio --studio-port 9000
+node engine/index.mjs --studio            # http://127.0.0.1:7474
+node engine/index.mjs --studio --studio-port 9000
 ```
 
-The engine prints a one-time URL with a session token to stderr:
-`▶ AEGIS Studio: http://127.0.0.1:7474/?token=...`. The token gates every
-`/api` and `/ws` request — same trust model as `prisma studio`. Nothing
-binds beyond `127.0.0.1`.
+The engine prints a one-time URL with a session token to stderr. Token gates every `/api` and `/ws` request — nothing binds beyond `127.0.0.1`.
 
-Surfaces (read-only at MVP):
-
-- **Overview** — engine uptime, signal counters, active strategies, KPI
-  sticky-notes for trades / agent runs / DCA plans.
-- **Live feed** — every event-bus signal as it lands, filtered by type.
-- **Agent runs** — `AgentInvocation` table with drill-in to per-tool
-  timeline (success, duration, error, input/output).
-- **Strategies** — DCA plans, rebalance targets, price alerts.
-- **Trades** — `TradeExecution` history with explorer links.
-- **Logs** — live pino tail with level + child-logger filter chips.
-
-Studio off by default. With no `--studio` flag the engine never binds the
-port. Run `pnpm studio:build` once after pulling fresh changes to build
-the React bundle (the published npm package ships with `dist/` already).
-
-## Architecture
-
-```
-┌────────────────────────────────────────────────────────┐
-│  LLM agent  (Vercel AI SDK 6  ToolLoopAgent)           │  ← engine/agent
-│   • system prompt + tool registry                      │
-│   • per-user message memory                            │
-│   • per-user invocation budget                         │
-└──────────────────────┬─────────────────────────────────┘
-                       │ tool calls
-┌──────────────────────▼─────────────────────────────────┐
-│  AEGIS engine                                          │  ← engine/
-│   • policies   (spend-limit, cooldown, price-guard,    │
-│      time-window, consensus, privacy) — fail-closed    │
-│   • strategies (DCA, dip-buyer, take-profit,           │
-│      rebalancer, group-consensus, agent)               │
-│   • monitors   (price, portfolio, whale, scheduler)    │
-│   • execution  (Zerion swap router, MagicBlock         │
-│      private rollup)                                   │
-└──────────────────────┬─────────────────────────────────┘
-                       │ real tx
-┌──────────────────────▼─────────────────────────────────┐
-│  Zerion CLI base (forked)                              │  ← commands/, utils/
-│   wallet keystore (OWS) · swap · bridge · analytics    │
-└────────────────────────────────────────────────────────┘
-```
-
-Two surfaces talk to the agent:
-- **Telegram** — `engine/bot/handlers/chat.mjs:registerChat`. Plain text → agent. `/agent model …`, `/agent autonomy …`, `/agent reset`. Approval flows through inline Approve/Deny keyboards.
-- **CLI** — `aegis chat` (REPL) or `aegis chat "<prompt>"` (one-shot). See `commands/chat.js`.
-
-Both surfaces share the same `runAgentTurn()` core in `engine/agent/index.mjs`, the same tool registry, and the same policy gate.
-
----
-
-## Track requirements — file:line evidence
-
-| Requirement | Where it lives |
-|---|---|
-| LLM-driven agent (Vercel AI SDK 6) | `engine/agent/index.mjs:runAgentTurn` |
-| Tool registry wrapping Zerion CLI | `engine/agent/tools/*.mjs` (25 tools, includes `rememberFact` / `recallFacts` for durable agent memory) |
-| Real onchain swap | `engine/agent/tools/swap.mjs:executeSwap` → `engine/execution/executor.mjs:executeTrade` |
-| Policy gate (no god-mode) | `engine/policies/engine.mjs:runPolicies` (throws on empty config) |
-| No-bypass guarantee | `engine/execution/executor.mjs` (refuses ungated proposals) |
-| No-bypass tests | `tests/unit/policies/no-bypass.test.mjs`, `tests/unit/agent/no-bypass.test.mjs` |
-| Tool contract test | `tests/unit/agent/tool-contract.test.mjs` |
-| Human-in-the-loop approval | `engine/agent/tools/swap.mjs` (`needsApproval: true`) + `engine/bot/handlers/chat.mjs` (Approve/Deny callback) |
-| Multi-model (OpenAI + Anthropic) | `engine/agent/index.mjs:resolveModel`, runtime switch via `/agent model` |
-| Autonomous signal reactions | `engine/strategies/agent.mjs:AgentStrategy` |
-| MagicBlock private execution | `engine/execution/private-executor.mjs` + `engine/lib/magicblock/client.mjs` |
-
----
-
-## Multi-model
-
-```bash
-AEGIS_AGENT_MODEL=openai/gpt-5 pnpm start
-AEGIS_AGENT_MODEL=anthropic/claude-sonnet-4.5 pnpm start
-```
-
-Or live-switch in the bot:
-
-```
-/agent model openai/gpt-4.1-mini
-/agent model anthropic/claude-opus-4.7
-```
-
-Available: `openai/gpt-5`, `openai/gpt-4.1-mini`, `anthropic/claude-sonnet-4.5`, `anthropic/claude-opus-4.7`. Same prompt, same tools, same policy gate across providers.
-
----
-
-## Tool surface (21 tools)
-
-| Group | Tools |
-|---|---|
-| Portfolio (read) | `getPortfolio`, `getPositions`, `getPnl`, `getHistory` |
-| Market (read) | `getTokenPrice`, `searchToken`, `listChains` |
-| Swap | `getSwapQuote`, **`executeSwap`** *(approval + policy gate)* |
-| DCA | **`createDCAPlan`** *(approval)*, `listDCAPlans`, `pauseDCAPlan`, `cancelDCAPlan` |
-| Policy (read) | `listAvailablePolicies`, `showActivePolicies`, `getDefaultPoliciesForStrategy` |
-| Shield (MagicBlock) | `getShieldBalance`, **`depositToShield`** *(approval)*, **`withdrawFromShield`** *(approval)* |
-| Wallet (read) | `listWallets`, `getWalletAddresses` |
-
-Destructive credential ops (wallet create/delete/import, agent token create/revoke) are intentionally human-only and not exposed to the LLM.
-
----
-
-## Test surface
-
-```bash
-pnpm test:unit
-```
-
-Covers:
-- CLI router behaviour
-- Policy no-bypass guarantees — `MissingPolicyConfigError` on empty config, executor refuses proposals without `policyResult`
-- Agent tool contract — every tool has description / inputSchema / execute, value-moving tools have `needsApproval: true`
-- Agent no-bypass — proves the LLM cannot skip the policy gate even when calling the tool's `execute()` directly
-
----
-
-## Notes
-
-- `AEGIS_AGENT_AUTONOMY=off` disables autonomous signal reactions; chat still works.
-- Built on the forked Zerion CLI in this repo. The Zerion-only commands (`zerion swap`, `zerion portfolio`, `zerion wallet …`) still work; the agent is additive.
-- MagicBlock devnet validator: `FnE6VJT5QNZdedZPnCoLsARgBwoE6DeJNjBs2H1gySXA`.
+Surfaces: Overview · Live feed · Agent runs · Strategies · Trades · Logs.
 
 ---
 
 ## Demo
 
-A six-minute end-to-end Telegram walkthrough (portfolio query → swap quote → approval → real swap → DCA plan → live model switch → policy denial) is recorded at: *(link inserted after capture)*.
+End-to-end Telegram walkthrough (portfolio → swap → approval → DCA → model switch → policy denial):
+
+<https://www.youtube.com/playlist?list=PLeERy8YL4mpRKIQyVis1cI1L9gk8j63Oi>
 
 Solscan tx hashes for the demo run are listed in `TRACKS.md`.
 

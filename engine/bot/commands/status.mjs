@@ -3,8 +3,8 @@
  */
 
 import { getPortfolioAllocations, getPortfolioValue } from '../../utils/zerion-api.mjs';
-import { getEvmAddress, getSolAddress } from '../../../utils/wallet/keystore.js';
-import { isSolana } from '../../../utils/chain/registry.js';
+import { getEvmAddress, getSolAddress } from '../../../cli/utils/wallet/keystore.js';
+import { isSolana } from '../../../cli/utils/chain/registry.js';
 import { getActiveDCAPlans } from '../../store/plans.mjs';
 import { getActiveRebalanceTargets, getActivePriceAlerts } from '../../store/plans.mjs';
 import { getExecutionStats } from '../../store/executions.mjs';

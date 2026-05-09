@@ -24,9 +24,9 @@ import { print, printError } from "../utils/common/output.js";
 let _agent = null;
 async function loadAgent() {
   if (!_agent) {
-    const { initDb } = await import("../engine/db/index.mjs");
+    const { initDb } = await import("../../engine/db/index.mjs");
     await initDb();
-    const indexMod = await import("../engine/agent/index.mjs");
+    const indexMod = await import("../../engine/agent/index.mjs");
     _agent = {
       runAgentTurn: indexMod.runAgentTurn,
       setActiveModel: indexMod.setActiveModel,
@@ -338,7 +338,7 @@ async function runTuiMode(flags) {
         break;
       }
       case "list_sessions": {
-        const { listSessions } = await import("../engine/agent/db-memory.mjs");
+        const { listSessions } = await import("../../engine/agent/db-memory.mjs");
         const sessions = await listSessions("tui-");
         tuiWrite({ type: "sessions_list", sessions });
         break;
@@ -403,7 +403,7 @@ export default async function chat(args, flags) {
 
     let transcribed;
     try {
-      const { getTranscriber } = await import("../engine/qvac/index.mjs");
+      const { getTranscriber } = await import("../../engine/qvac/index.mjs");
       const t = await getTranscriber();
       const result = await t.transcribe(audioBuf, {});
       transcribed = (result.text || "").trim();

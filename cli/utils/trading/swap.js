@@ -423,6 +423,18 @@ async function executeEvmSwap(quote, walletName, passphrase, zerionChainId, { ti
   // 3. Broadcast and wait for source-chain confirmation
   const result = await broadcastAndWait(client, signedTxHex, { timeout, isCrossChain });
 
+  // Reverted receipts are on-chain failures — surface them through the same
+  // throw path as broadcast errors so the executor's single boundary logs and
+  // converts them to { success: false } rather than treating them as success.
+  if (result.status && result.status !== "success") {
+    const err = new Error(
+      `Swap reverted on-chain. Tx: ${result.hash} (status: ${result.status})`
+    );
+    err.code = "swap_reverted";
+    err.hash = result.hash;
+    throw err;
+  }
+
   // 4. For cross-chain: poll destination chain for delivery
   if (isCrossChain && result.status === "success") {
     if (preBalance === null) {

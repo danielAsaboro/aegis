@@ -9,8 +9,8 @@
 import { createRebalanceTarget } from '../../core/types.mjs';
 import { setRebalanceTarget, getRebalanceTargets } from '../../store/plans.mjs';
 import { getPortfolioAllocations } from '../../utils/zerion-api.mjs';
-import { getEvmAddress, getSolAddress } from '../../../utils/wallet/keystore.js';
-import { isSolana } from '../../../utils/chain/registry.js';
+import { getEvmAddress, getSolAddress } from '../../../cli/utils/wallet/keystore.js';
+import { isSolana } from '../../../cli/utils/chain/registry.js';
 import { getDefaultPolicies } from '../../policies/engine.mjs';
 import { formatRebalanceStatus } from '../formatters.mjs';
 

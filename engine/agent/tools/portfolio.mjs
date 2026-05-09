@@ -9,9 +9,9 @@
 
 import { tool } from 'ai';
 import { z } from 'zod';
-import * as api from '../../../utils/api/client.js';
-import { getEvmAddress, getSolAddress } from '../../../utils/wallet/keystore.js';
-import { isSolana } from '../../../utils/chain/registry.js';
+import * as api from '../../../cli/utils/api/client.js';
+import { getEvmAddress, getSolAddress } from '../../../cli/utils/wallet/keystore.js';
+import { isSolana } from '../../../cli/utils/chain/registry.js';
 import env from '../../config.mjs';
 
 function resolveWalletAddress(walletName, chain) {

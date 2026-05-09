@@ -9,9 +9,9 @@
  * Imports directly from the forked Zerion CLI for swap execution.
  */
 
-import { getSwapQuote, executeSwap } from '../../utils/trading/swap.js';
-import { getEvmAddress, getSolAddress, getAgentToken } from '../../utils/wallet/keystore.js';
-import { isSolana } from '../../utils/chain/registry.js';
+import { getSwapQuote, executeSwap } from '../../cli/utils/trading/swap.js';
+import { getEvmAddress, getSolAddress, getAgentToken } from '../../cli/utils/wallet/keystore.js';
+import { isSolana } from '../../cli/utils/chain/registry.js';
 import { createExecutionResult } from '../core/types.mjs';
 import { executionLog } from '../core/logger.mjs';
 import { logExecution } from '../store/executions.mjs';

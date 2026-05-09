@@ -18,7 +18,15 @@ function resolveDatabaseUrl() {
   if (isAbsolute(filePath)) return `file:${filePath}`;
   const cleaned = filePath.replace(/^\.\//, '');
   const abs = join(env.DATA_DIR, cleaned);
-  mkdirSync(dirname(abs), { recursive: true });
+  const dir = dirname(abs);
+  try {
+    mkdirSync(dir, { recursive: true });
+  } catch (err) {
+    throw new Error(
+      `DATA_DIR=${env.DATA_DIR} not writable (failed to create ${dir}: ${err.code || err.message}) — ` +
+      `set DATA_DIR to a writable directory (e.g. DATA_DIR=$(mktemp -d)).`
+    );
+  }
   return `file:${abs}`;
 }
 

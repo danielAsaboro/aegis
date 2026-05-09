@@ -10,9 +10,9 @@ import {
   searchFungibles,
   getFungible,
   getChains,
-} from '../../utils/api/client.js';
-import { getSwapQuote, executeSwap } from '../../utils/trading/swap.js';
-import { resolveToken } from '../../utils/trading/resolve-token.js';
+} from '../../cli/utils/api/client.js';
+import { getSwapQuote, executeSwap } from '../../cli/utils/trading/swap.js';
+import { resolveToken } from '../../cli/utils/trading/resolve-token.js';
 import { monitorLog } from '../core/logger.mjs';
 
 // Re-export core functions

@@ -10,10 +10,10 @@ import { policyLog } from '../core/logger.mjs';
 import { createPolicyResult } from '../core/types.mjs';
 
 // Import CLI policies (each exports check(ctx))
-import { check as checkSpendLimit } from '../../policies/spend-limit.mjs';
-import { check as checkTimeWindow } from '../../policies/time-window.mjs';
-import { check as checkPriceGuard } from '../../policies/price-guard.mjs';
-import { check as checkCooldown } from '../../policies/cooldown.mjs';
+import { check as checkSpendLimit } from '../../cli/policies/spend-limit.mjs';
+import { check as checkTimeWindow } from '../../cli/policies/time-window.mjs';
+import { check as checkPriceGuard } from '../../cli/policies/price-guard.mjs';
+import { check as checkCooldown } from '../../cli/policies/cooldown.mjs';
 
 // Import AEGIS consensus policy
 import { check as checkConsensus } from './consensus.mjs';

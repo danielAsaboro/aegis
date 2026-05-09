@@ -2,7 +2,7 @@
  * /start — Welcome wizard + wallet info display.
  */
 
-import { listWallets, getEvmAddress, getSolAddress } from '../../../utils/wallet/keystore.js';
+import { listWallets, getEvmAddress, getSolAddress } from '../../../cli/utils/wallet/keystore.js';
 import { formatWelcome } from '../formatters.mjs';
 
 export function registerStart(bot, config) {

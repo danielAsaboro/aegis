@@ -15,6 +15,22 @@
 
 * **cli:** make `zerion init` skills step interactive by default ([#49](https://github.com/zeriontech/zerion-ai/issues/49)) ([e3634bd](https://github.com/zeriontech/zerion-ai/commit/e3634bd7b27fa29532857afc8d58a6edc128243a))
 
+## [aegis-frontier-1.0.0] — Frontier hackathon submission (2026-05-08)
+
+What this fork adds on top of the upstream Zerion CLI (a one-screen map for fork-curious readers; full evidence in `README.md` and `TRACKS.md`):
+
+- **LLM agent loop** wrapping the Zerion CLI as a Vercel-AI-SDK-6 tool registry — `engine/agent/index.mjs:runAgentTurn`, registry at `engine/agent/tools/index.mjs` (34 tools).
+- **Fail-closed policy engine** — `engine/policies/engine.mjs:runPolicies` throws `MissingPolicyConfigError` on empty config; `engine/execution/executor.mjs` refuses any proposal without an approved `policyResult`. Adversarial proofs in `tests/unit/policies/no-bypass.test.mjs` and `tests/unit/agent/no-bypass.test.mjs`.
+- **Subscription-only and local-only LLM providers** — `engine/agent/resolve-model.mjs` rejects `openai/*` and `anthropic/*` model ids by design. Two paths: `codex/default` (ChatGPT subscription via Codex CLI) and `qvac/local` (on-device GGUF via the Bare-runtime QVAC sidecar at `engine/qvac/sidecar/`).
+- **MagicBlock private-execution path** — `engine/execution/private-executor.mjs` + `engine/lib/magicblock/client.mjs`; agent tools `depositToShield` / `withdrawFromShield` / `getShieldBalance`. Deposit half verified on devnet; intra-rollup transfer + withdraw blocked on an open SDK issue (`DelegationRecordInvalidAccountOwner`), documented in `TRACKS.md`.
+- **QVAC integration** — local embeddings (`engine/qvac/embeddings.mjs`), STT/TTS (`engine/qvac/transcription.mjs`, `engine/qvac/tts.mjs`), `ai-sdk-qvac` provider (`engine/qvac/ai-sdk-provider/`), and RAG tools (`searchFacts`, `searchTradeHistory`, `summarizeSimilarTrades`).
+- **AEGIS Studio** — localhost-bound observability UI (`engine/studio/`), token-gated, off by default.
+- **Missions framework** — autonomous-envelope primitive (`engine/agent/tools/missions.mjs`).
+- **Test suite expansion** — 159 unit tests (152 passing) plus integration and e2e suites.
+- **Demo video** — <https://www.youtube.com/playlist?list=PLeERy8YL4mpRKIQyVis1cI1L9gk8j63Oi>.
+
+The upstream Zerion CLI surface (`zerion swap`, `zerion portfolio`, `zerion bridge`, wallet keystore, agent-token flow) is intact and registered at `cli/zerion.js`; the agent is additive.
+
 ## [1.0.1](https://github.com/zeriontech/zerion-ai/compare/v1.0.0...v1.0.1) (2026-05-05)
 
 

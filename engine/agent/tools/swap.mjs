@@ -16,12 +16,12 @@
 
 import { tool } from 'ai';
 import { z } from 'zod';
-import { getSwapQuote as zerionGetSwapQuote } from '../../../utils/trading/swap.js';
+import { getSwapQuote as zerionGetSwapQuote } from '../../../cli/utils/trading/swap.js';
 import { runPolicies, getDefaultPolicies } from '../../policies/engine.mjs';
 import { createTradeProposal } from '../../core/types.mjs';
 import { executeTrade, getTxExplorerUrl } from '../../execution/executor.mjs';
-import { getEvmAddress, getSolAddress } from '../../../utils/wallet/keystore.js';
-import { isSolana } from '../../../utils/chain/registry.js';
+import { getEvmAddress, getSolAddress } from '../../../cli/utils/wallet/keystore.js';
+import { isSolana } from '../../../cli/utils/chain/registry.js';
 import { needsApprovalGate, resolveActiveMission } from './_approval-gate.mjs';
 import env from '../../config.mjs';
 
@@ -114,6 +114,26 @@ export const executeSwap = tool({
     }
 
     proposal.policyResult = policyResult;
+
+    // Mirror the private-executor cross-token guard up front so the LLM gets
+    // a clear conversational message instead of an opaque mid-flow throw.
+    // MagicBlock private execution today only supports same-token shielding;
+    // a private routed swap from A → B has no DEX leg inside the rollup.
+    if (
+      policyResult.usePrivate &&
+      isSolana(tradeChain) &&
+      proposal.fromToken !== proposal.toToken
+    ) {
+      return {
+        success: false,
+        denied: true,
+        deniedBy: 'private-execution-capability',
+        reason:
+          `MagicBlock shield supports same-token deposits only — to swap into ${proposal.toToken}, ` +
+          `use \`swap\` first (public route), then \`shield\` to move ${proposal.toToken} into the private rollup.`,
+        proposalId: proposal.id,
+      };
+    }
 
     const result = await executeTrade(proposal, {
       walletName,

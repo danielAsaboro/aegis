@@ -11,12 +11,16 @@ import {
   Connection,
   PublicKey,
   Transaction,
+  SystemProgram,
   Keypair,
   sendAndConfirmTransaction,
 } from '@solana/web3.js';
 import {
   TOKEN_PROGRAM_ID,
+  NATIVE_MINT,
   getAssociatedTokenAddressSync,
+  createAssociatedTokenAccountIdempotentInstruction,
+  createSyncNativeInstruction,
   createTransferCheckedInstruction,
   getAccount,
 } from '@solana/spl-token';
@@ -90,7 +94,15 @@ export class MagicBlockClient {
       const account = await getAccount(this.baseConnection, ata);
       return account.amount;
     } catch (err) {
-      if (err.name === 'TokenAccountNotFoundError') return 0n;
+      if (err.name === 'TokenAccountNotFoundError') {
+        log.warn({
+          mint: mint.toBase58(),
+          ata: ata.toBase58(),
+          owner: this.publicKey.toBase58(),
+          err: err.message,
+        }, 'base ATA not found — treating balance as 0');
+        return 0n;
+      }
       throw err;
     }
   }
@@ -105,7 +117,14 @@ export class MagicBlockClient {
     try {
       // Check if delegated to ephemeral
       const baseInfo = await this.baseConnection.getAccountInfo(eata);
-      if (!baseInfo) return 0n;
+      if (!baseInfo) {
+        log.warn({
+          mint: mint.toBase58(),
+          eata: eata.toBase58(),
+          owner: this.publicKey.toBase58(),
+        }, 'eata not initialized on base — shielded balance treated as 0');
+        return 0n;
+      }
 
       // Try ephemeral connection for delegated balance
       try {
@@ -118,7 +137,15 @@ export class MagicBlockClient {
         return account.amount;
       }
     } catch (err) {
-      if (err.name === 'TokenAccountNotFoundError') return 0n;
+      if (err.name === 'TokenAccountNotFoundError') {
+        log.warn({
+          mint: mint.toBase58(),
+          eata: eata.toBase58(),
+          owner: this.publicKey.toBase58(),
+          err: err.message,
+        }, 'shielded token account not found — treating balance as 0');
+        return 0n;
+      }
       throw err;
     }
   }
@@ -137,7 +164,20 @@ export class MagicBlockClient {
 
     log.info({ mint: mint.toBase58(), amount: amountBn.toString() }, 'Depositing to shield');
 
-    // SDK v0.10.5 handles all initialization internally
+    // WSOL (native SOL) must be wrapped before delegateSpl can transfer it.
+    // Create the ATA idempotently, transfer native lamports in, then syncNative.
+    if (mint.equals(NATIVE_MINT)) {
+      const wsolAta = getAssociatedTokenAddressSync(NATIVE_MINT, this.publicKey, false, TOKEN_PROGRAM_ID);
+      const wrapTx = new Transaction().add(
+        createAssociatedTokenAccountIdempotentInstruction(this.publicKey, wsolAta, this.publicKey, NATIVE_MINT),
+        SystemProgram.transfer({ fromPubkey: this.publicKey, toPubkey: wsolAta, lamports: amountBn }),
+        createSyncNativeInstruction(wsolAta),
+      );
+      const wrapSig = await sendAndConfirmTransaction(this.baseConnection, wrapTx, [this.keypair]);
+      log.info({ wrapSig }, 'Native SOL wrapped to WSOL');
+    }
+
+    // SDK v0.10.5 handles all further initialization internally
     const instructions = await delegateSpl(this.publicKey, mint, amountBn, {
       payer: this.publicKey,
       validator: this.validator,

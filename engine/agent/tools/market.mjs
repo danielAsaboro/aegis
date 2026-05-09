@@ -5,8 +5,8 @@
 import { tool } from 'ai';
 import { z } from 'zod';
 import { getTokenPrice as zerionGetTokenPrice } from '../../utils/zerion-api.mjs';
-import * as api from '../../../utils/api/client.js';
-import { SUPPORTED_CHAINS } from '../../../utils/chain/registry.js';
+import * as api from '../../../cli/utils/api/client.js';
+import { SUPPORTED_CHAINS } from '../../../cli/utils/chain/registry.js';
 
 export const getTokenPrice = tool({
   description: 'Fetch the current USD price and 24h change for a token by symbol or fungible id.',

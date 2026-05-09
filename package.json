@@ -1,6 +1,6 @@
 {
   "name": "@danielasaboro/aegis",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Privacy-first autonomous trading agent. Natural language → policy-gated → shielded execution on Solana.",
   "author": "Daniel Asaboro <asaborodaniel@gmail.com>",
   "type": "module",
