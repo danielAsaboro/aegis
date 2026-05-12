@@ -114,3 +114,54 @@ export const allTools = {
   resumeMission,
   cancelMission,
 };
+
+export const scheduledTools = {
+  // Portfolio + market reads
+  getPortfolio,
+  getPositions,
+  getPnl,
+  getHistory,
+  getTokenPrice,
+  searchToken,
+  listChains,
+  // Policy visibility
+  listAvailablePolicies: listAvailablePoliciesTool,
+  showActivePolicies,
+  getDefaultPoliciesForStrategy,
+  // Wallet/shield reads
+  getShieldBalance,
+  listWallets: listWalletsTool,
+  getWalletAddresses,
+  // Memory reads + safe writes
+  rememberFact,
+  recallFacts,
+  listFacts,
+  searchFacts,
+  searchTradeHistory,
+  summarizeSimilarTrades,
+  // Mission visibility
+  listMissions,
+  getMissionStatus,
+};
+
+export const systemFollowupTools = {
+  getPortfolio,
+  getPositions,
+  getPnl,
+  getTokenPrice,
+  searchToken,
+  listChains,
+  recallFacts,
+  listFacts,
+  searchFacts,
+  searchTradeHistory,
+  summarizeSimilarTrades,
+  listMissions,
+  getMissionStatus,
+};
+
+export function getToolRegistry(turnProfile = 'interactive') {
+  if (turnProfile === 'scheduled') return scheduledTools;
+  if (turnProfile === 'system_followup') return systemFollowupTools;
+  return allTools;
+}

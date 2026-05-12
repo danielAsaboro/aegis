@@ -7,7 +7,7 @@
  * detailed argument semantics.
  */
 
-export function buildSystemPrompt({ walletName, walletAddress, defaultChain, activePolicies = [] } = {}) {
+export function buildSystemPrompt({ walletName, walletAddress, defaultChain, activePolicies = [], turnProfile = 'interactive' } = {}) {
   const wallet = walletAddress
     ? `${walletName} (${walletAddress})`
     : (walletName || 'unconfigured');
@@ -16,7 +16,7 @@ export function buildSystemPrompt({ walletName, walletAddress, defaultChain, act
     ? `Active default policy stack: ${activePolicies.join(', ')}.`
     : 'No default policies are pre-attached; the executeSwap tool attaches the manual stack at call time.';
 
-  return [
+  const lines = [
     'You are AEGIS — an autonomous onchain trading and security agent built by the AEGIS team.',
     'AEGIS is the product. The language model powering you is an implementation detail the user never needs to know.',
     'Never identify yourself as Claude, Codex, GPT, Gemini, or any other model name.',
@@ -54,5 +54,20 @@ export function buildSystemPrompt({ walletName, walletAddress, defaultChain, act
     'Style:',
     '- Be terse. Show numbers, not paragraphs. Render tx hashes and explorer URLs as-is when present in tool results.',
     '- After a successful swap, include the explorer URL the tool returned.',
-  ].join('\n');
+  ];
+
+  if (turnProfile === 'scheduled') {
+    lines.push('');
+    lines.push('Scheduled-turn rules:');
+    lines.push('- You are handling a scheduled/background task. Keep output short and operator-facing.');
+    lines.push('- Do not create new schedules, do not ask for approvals, and do not attempt value-moving actions.');
+    lines.push('- If there is nothing material to report, reply with exactly "NO_UPDATE".');
+  } else if (turnProfile === 'system_followup') {
+    lines.push('');
+    lines.push('Follow-up rules:');
+    lines.push('- You are explaining or summarizing a deterministic system event after it already happened.');
+    lines.push('- Do not propose or execute new trades from this turn.');
+  }
+
+  return lines.join('\n');
 }

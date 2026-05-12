@@ -1,163 +1,149 @@
 "use client";
 
 import { useState } from "react";
+import { Reveal } from "./Reveal";
 
 const STEPS = [
   {
-    label: "Clone & install",
+    label: "Clone the fork",
     code: `git clone https://github.com/danielAsaboro/aegis
 cd aegis
 cp .env.example .env`,
   },
   {
-    label: "Set env vars",
-    code: `# Edit .env — required:
+    label: "Configure execution",
+    code: `# Required for Telegram and Zerion-routed swaps
 TELEGRAM_BOT_TOKEN=<from @BotFather>
 ZERION_API_KEY=<from dashboard.zerion.io>`,
   },
   {
-    label: "Start the agent",
+    label: "Start services",
     code: `pnpm install
 pnpm db:push
 pnpm start`,
   },
   {
-    label: "Or chat in CLI",
-    code: `# Talk to the agent in your terminal
-node engine/index.mjs chat`,
+    label: "Run the CLI surface",
+    code: `node engine/index.mjs chat`,
   },
 ];
 
 function CopyButton({ text }: { text: string }) {
-  const [copied, setCopied] = useState(false);
+  const [state, setState] = useState<"idle" | "copied" | "error">("idle");
 
   const copy = async () => {
-    await navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    try {
+      await navigator.clipboard.writeText(text);
+      setState("copied");
+    } catch {
+      setState("error");
+    }
+    setTimeout(() => setState("idle"), 1800);
   };
+
+  const label = state === "copied" ? "Copied" : state === "error" ? "Copy failed" : "Copy";
 
   return (
     <button
+      type="button"
       onClick={copy}
-      className="flex items-center gap-1.5 px-2.5 py-1 font-mono text-xs text-text-muted hover:text-[#e8a030] border border-border hover:border-[#e8a030]/30 rounded transition-all duration-200"
+      className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-[#f6f0df12] px-3 font-mono text-xs text-text-muted transition-colors duration-150 ease-out hover:border-[#deb2594d] hover:text-aegis-gold focus-ring"
+      aria-live="polite"
     >
-      {copied ? (
-        <>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="20 6 9 17 4 12"/>
-          </svg>
-          Copied
-        </>
-      ) : (
-        <>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
-            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
-          </svg>
-          Copy
-        </>
-      )}
+      {state === "copied" ? <CheckIcon /> : <CopyIcon />}
+      {label}
     </button>
   );
 }
 
 export function QuickStart() {
   return (
-    <section id="quickstart" className="relative py-28 px-6 bg-surface/20">
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-px h-16 bg-gradient-to-b from-transparent to-border" />
-
-      <div className="max-w-3xl mx-auto">
-        <div className="text-center mb-16">
-          <div className="flex items-center justify-center gap-3 mb-5">
-            <div className="h-px w-8 bg-[#4ade80]/50" />
-            <span className="font-mono text-[10px] text-[#4ade80]/70 tracking-[0.22em] uppercase">
-              Quick Start
-            </span>
+    <section id="quickstart" className="section-shell">
+      <div className="section-inner">
+        <Reveal>
+          <div className="mx-auto max-w-3xl text-center">
+            <span className="eyebrow justify-center">Quickstart</span>
+            <h2 className="headline mt-5 text-balance text-4xl leading-none md:text-6xl">
+              Clone, configure, prove the path.
+            </h2>
+            <p className="mt-5 text-base leading-8 text-text-muted">
+              Requires Node.js 20 or newer. The demo path keeps real execution routed
+              through the forked Zerion CLI and the Zerion API.
+            </p>
           </div>
-          <h2 className="font-display text-4xl md:text-5xl font-700 text-white leading-tight">
-            Up in four steps.
-          </h2>
-          <p className="mt-4 text-text-muted">
-            Requires Node.js ≥ 20. LLM access via ChatGPT subscription or local QVAC — no API keys.
-          </p>
-        </div>
+        </Reveal>
 
-        {/* Steps */}
-        <div className="space-y-4">
-          {STEPS.map((step, i) => (
-            <div key={i} className="terminal-window">
-              <div className="terminal-bar">
-                <div className="terminal-dot bg-[#ff5f56]" />
-                <div className="terminal-dot bg-[#ffbd2e]" />
-                <div className="terminal-dot bg-[#27c93f]" />
-                <div className="ml-3 flex items-center gap-2">
-                  <span
-                    className="font-mono text-[10px] tracking-widest uppercase px-2 py-0.5 rounded"
-                    style={{
-                      background: "rgba(232,160,48,0.08)",
-                      color: "rgba(232,160,48,0.7)",
-                      border: "1px solid rgba(232,160,48,0.15)",
-                    }}
-                  >
-                    {String(i + 1).padStart(2, "0")}
+        <div className="mx-auto mt-12 grid max-w-4xl gap-4">
+          {STEPS.map((step, index) => (
+            <Reveal key={step.label} delay={index * 60}>
+              <div className="terminal-window">
+                <div className="terminal-bar flex-wrap gap-3">
+                  <span className="rounded-full border border-[#deb25930] bg-[#deb25910] px-3 py-1 font-mono text-[0.62rem] uppercase tracking-[0.18em] text-aegis-gold">
+                    {String(index + 1).padStart(2, "0")}
                   </span>
-                  <span className="font-mono text-xs text-text-muted">
+                  <span className="font-display text-base font-bold text-text-primary">
                     {step.label}
                   </span>
+                  <div className="ml-auto">
+                    <CopyButton text={step.code} />
+                  </div>
                 </div>
-                <div className="ml-auto">
-                  <CopyButton text={step.code} />
-                </div>
-              </div>
-              <pre className="p-5 font-mono text-sm text-[#94a3b8] leading-relaxed overflow-x-auto whitespace-pre">
-                {step.code.split("\n").map((line, li) => {
-                  const isComment = line.trim().startsWith("#");
-                  const isCommand = !isComment && line.trim().length > 0;
-                  return (
-                    <div key={li}>
-                      {isComment ? (
-                        <span className="text-[#4a4555]">{line}</span>
-                      ) : isCommand ? (
-                        <span className="text-[#ede9df]">{line}</span>
-                      ) : (
-                        <span>{line}</span>
-                      )}
+                <pre className="overflow-x-auto p-5 text-left font-mono text-sm leading-7 text-text-muted">
+                  {step.code.split("\n").map((line, lineIndex) => (
+                    <span
+                      key={`${step.label}-${lineIndex}`}
+                      className={line.trim().startsWith("#") ? "text-text-dim" : "text-text-primary"}
+                    >
+                      {line}
                       {"\n"}
-                    </div>
-                  );
-                })}
-              </pre>
-            </div>
+                    </span>
+                  ))}
+                </pre>
+              </div>
+            </Reveal>
           ))}
         </div>
 
-        {/* Full docs CTA */}
-        <div className="mt-10 text-center">
-          <a
-            href="https://github.com/danielAsaboro/aegis/blob/main/README.md"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 text-sm text-text-muted hover:text-[#e8a030] transition-colors duration-200 group"
-          >
-            <span>Full documentation on GitHub</span>
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="group-hover:translate-x-1 transition-transform duration-200"
+        <Reveal delay={120}>
+          <div className="mt-10 text-center">
+            <a
+              href="https://github.com/danielAsaboro/aegis/blob/main/README.md"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex min-h-11 items-center gap-2 rounded-2xl border border-[#f6f0df12] px-4 font-mono text-sm font-bold uppercase tracking-[0.12em] text-text-muted transition-colors duration-150 ease-out hover:border-[#deb25940] hover:text-aegis-gold focus-ring"
             >
-              <line x1="5" y1="12" x2="19" y2="12"/>
-              <polyline points="12 5 19 12 12 19"/>
-            </svg>
-          </a>
-        </div>
+              Read the full docs
+              <ArrowIcon />
+            </a>
+          </div>
+        </Reveal>
       </div>
     </section>
+  );
+}
+
+function CopyIcon() {
+  return (
+    <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="9" y="9" width="13" height="13" rx="2" />
+      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+    </svg>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="m20 6-11 11-5-5" />
+    </svg>
+  );
+}
+
+function ArrowIcon() {
+  return (
+    <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M5 12h14" />
+      <path d="m13 5 7 7-7 7" />
+    </svg>
   );
 }

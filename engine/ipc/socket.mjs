@@ -16,7 +16,7 @@
  *     { type: "commit_mission", title, intent, kind, policies, ... }
  *     { type: "pause_mission" | "resume_mission" | "cancel_mission", missionId }
  *     { type: "ack_excursion", missionId, toolCallId, approved }
- *     { type: "message", text }       // chat input
+ *     { type: "message", text, session_id?, user_id?, chat_id? } // chat input
  *     { type: "approval", approvalId, approved }
  *
  *   daemon → clients (broadcast)
@@ -125,7 +125,13 @@ async function handleCommand(socket, cmd) {
     case 'message': {
       if (typeof _onMessage === 'function') {
         try {
-          await _onMessage({ text: String(cmd.text || ''), socket, sessionId: cmd.session_id });
+          await _onMessage({
+            text: String(cmd.text || ''),
+            socket,
+            sessionId: cmd.session_id,
+            userId: cmd.user_id,
+            chatId: cmd.chat_id,
+          });
         } catch (err) {
           writeLine(socket, { type: 'error', message: err.message });
         }

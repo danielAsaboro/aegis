@@ -1,246 +1,156 @@
-import { Nav } from "@/components/Nav";
-import { TerminalDemo } from "@/components/TerminalDemo";
-import { StatsStrip } from "@/components/StatsStrip";
-import { HowItWorks } from "@/components/HowItWorks";
-import { FeaturesGrid } from "@/components/FeaturesGrid";
 import { Architecture } from "@/components/Architecture";
-import { Surfaces } from "@/components/Surfaces";
-import { QuickStart } from "@/components/QuickStart";
+import { CommandCenter } from "@/components/CommandCenter";
+import { FeaturesGrid } from "@/components/FeaturesGrid";
 import { Footer } from "@/components/Footer";
+import { HowItWorks } from "@/components/HowItWorks";
+import { Nav } from "@/components/Nav";
+import { QuickStart } from "@/components/QuickStart";
+import { StatsStrip } from "@/components/StatsStrip";
+import { Surfaces } from "@/components/Surfaces";
+import { TerminalDemo } from "@/components/TerminalDemo";
 
 const GH = "https://github.com/danielAsaboro/aegis";
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-bg">
+    <main className="site-shell min-h-screen bg-bg text-text-primary">
       <Nav />
 
-      {/* ╔═══════════════════════════════════════════════════════╗
-          ║  HERO                                                 ║
-          ╚═══════════════════════════════════════════════════════╝ */}
-      <section className="relative min-h-screen flex items-center pt-16 px-6 overflow-hidden">
+      <section className="relative min-h-[100svh] overflow-hidden px-4 pb-16 pt-28 sm:px-6 lg:pt-32">
+        <div className="absolute inset-x-0 top-0 h-[34rem] bg-[radial-gradient(ellipse_at_50%_0%,rgba(222,178,89,0.16),transparent_62%)]" />
+        <div className="absolute right-[-16rem] top-24 hidden h-[34rem] w-[52rem] rotate-[-18deg] border-y border-[#deb25912] bg-[#deb25906] lg:block" />
 
-        {/* Structured amber dot grid */}
-        <div
-          className="absolute inset-0 pointer-events-none"
-          style={{
-            backgroundImage:
-              "radial-gradient(rgba(232,160,48,0.18) 1px, transparent 1px)",
-            backgroundSize: "32px 32px",
-            maskImage: "radial-gradient(ellipse 70% 60% at 50% 50%, black 30%, transparent 100%)",
-            WebkitMaskImage: "radial-gradient(ellipse 70% 60% at 50% 50%, black 30%, transparent 100%)",
-            opacity: 0.12,
-            animation: "gridFade 1.2s ease-out forwards",
-          }}
-        />
-
-        {/* Single centered radial glow — architectural, not blobby */}
-        <div
-          className="absolute inset-0 pointer-events-none"
-          style={{
-            background: "radial-gradient(ellipse 70% 60% at 50% 0%, rgba(232,160,48,0.06) 0%, transparent 100%)",
-          }}
-        />
-
-        {/* AEGIS watermark */}
-        <div
-          className="absolute inset-0 flex items-center justify-center pointer-events-none select-none overflow-hidden"
-          aria-hidden="true"
-        >
-          <span className="font-display font-800 text-[24vw] leading-none tracking-[0.12em] text-white/[0.016]">
-            AEGIS
-          </span>
-        </div>
-
-        {/* Content */}
-        <div className="relative max-w-6xl mx-auto w-full grid lg:grid-cols-[1.1fr_0.9fr] gap-14 items-center py-20">
-
-          {/* ── Left ───────────────────────────────────────────── */}
-          <div>
-            {/* Badge strip */}
-            <div
-              className="hero-enter flex flex-wrap gap-2 mb-8"
-              style={{ animationDelay: "0ms" }}
-            >
-              {[
-                { label: "25 Tools"     },
-                { label: "9 Policies"   },
-                { label: "4 LLM Models" },
-                { label: "164 Tests ✓"  },
-              ].map((b) => (
+        <div className="relative mx-auto grid w-full max-w-6xl min-w-0 gap-12 lg:grid-cols-[1.02fr_0.98fr] lg:items-center">
+          <div className="w-full min-w-0 max-w-[22rem] sm:max-w-3xl">
+            <div className="hero-enter flex flex-wrap gap-2" style={{ animationDelay: "0ms" }}>
+              {["Zerion CLI fork", "Real onchain swaps", "Scoped policies", "Human approval"].map((label) => (
                 <span
-                  key={b.label}
-                  className="font-mono text-[10px] tracking-widest uppercase px-2.5 py-1 rounded-full border"
-                  style={{
-                    borderColor: "rgba(232,160,48,0.22)",
-                    background: "rgba(232,160,48,0.07)",
-                    color: "rgba(232,160,48,0.75)",
-                  }}
+                  key={label}
+                  className="glass-chip rounded-full px-3 py-1.5 font-mono text-[0.64rem] uppercase tracking-[0.17em] text-text-muted"
                 >
-                  {b.label}
+                  {label}
                 </span>
               ))}
             </div>
 
-            {/* Headline */}
             <h1
-              className="hero-enter font-display font-800 leading-[0.88] tracking-tight mb-7"
-              style={{ animationDelay: "80ms" }}
+              className="headline hero-enter mt-7 max-w-[22rem] text-balance text-[clamp(3.8rem,10vw,8.4rem)] leading-[0.82] sm:max-w-[13ch]"
+              style={{ animationDelay: "70ms" }}
             >
-              <span className="block text-[clamp(3.2rem,7.5vw,6.4rem)] text-white">
-                AUTONOMOUS
-              </span>
-              <span
-                className="block text-[clamp(3.2rem,7.5vw,6.4rem)]"
-                style={{
-                  background: "linear-gradient(130deg, #f5c060 0%, #e8a030 55%, #c47a10 100%)",
-                  WebkitBackgroundClip: "text",
-                  WebkitTextFillColor: "transparent",
-                  backgroundClip: "text",
-                }}
-              >
-                TRADING,
-              </span>
-              <span className="block text-[clamp(1.8rem,4.2vw,3.6rem)] text-white/40 font-600 tracking-normal mt-2">
-                ZERO INFORMATION LEAK.
-              </span>
+              Your wallet can act. It cannot go rogue.
             </h1>
 
-            {/* Subtext */}
             <p
-              className="hero-enter text-[#6b6376] text-[1.05rem] leading-[1.75] max-w-[480px] mb-10"
-              style={{ animationDelay: "160ms" }}
+              className="hero-enter mt-7 max-w-[22rem] text-lg leading-8 text-text-muted sm:max-w-xl"
+              style={{ animationDelay: "140ms" }}
             >
-              Talk to your wallet in natural language. AEGIS reasons with
-              Claude or GPT, gates every trade through a fail-closed policy
-              engine, and routes sensitive swaps through MagicBlock&apos;s
-              shielded rollup — so front-runners never see you coming.
+              AEGIS turns the forked Zerion CLI into an autonomous trading agent:
+              natural-language decisions, fail-closed policy controls, human approvals,
+              and real execution through Zerion&apos;s swap stack.
             </p>
 
-            {/* CTAs */}
             <div
-              className="hero-enter flex flex-wrap gap-4 mb-12"
-              style={{ animationDelay: "240ms" }}
+              className="hero-enter mt-9 flex w-full max-w-full flex-col gap-3 sm:flex-row"
+              style={{ animationDelay: "210ms" }}
             >
               <a
                 href={GH}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="btn-primary inline-flex items-center gap-2.5 px-6 py-3 rounded-xl font-mono text-sm font-500 text-[#080708] bg-[#e8a030] hover:bg-[#f0b040] transition-colors duration-200"
-                style={{ boxShadow: "0 0 24px rgba(232,160,48,0.25), 0 4px 16px rgba(0,0,0,0.4)" }}
+                className="btn-primary inline-flex items-center justify-center gap-2.5 rounded-2xl px-5 py-3 font-mono text-sm font-bold uppercase tracking-[0.12em] transition-transform duration-150 ease-out hover:-translate-y-0.5 focus-ring motion-reduce:transform-none"
               >
-                <GithubIcon />
-                Get Started on GitHub
+                <GitHubIcon />
+                Open the repo
               </a>
-
               <a
-                href="#quickstart"
-                className="inline-flex items-center gap-2.5 px-6 py-3 rounded-xl font-mono text-sm font-500 text-[#e8a030] border border-[#e8a030]/20 hover:border-[#e8a030]/45 hover:bg-[#e8a030]/6 transition-all duration-200"
+                href="#demo"
+                className="btn-secondary inline-flex items-center justify-center gap-2.5 rounded-2xl px-5 py-3 font-mono text-sm font-bold uppercase tracking-[0.12em] transition-colors duration-150 ease-out hover:border-[#f6f0df24] hover:bg-[#f6f0df08] focus-ring"
               >
-                Quick Install
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="5" y1="12" x2="19" y2="12"/>
-                  <polyline points="12 5 19 12 12 19"/>
-                </svg>
+                See the flow
+                <ArrowIcon />
               </a>
             </div>
 
-            {/* Built with */}
             <div
-              className="hero-enter flex flex-wrap items-center gap-4"
-              style={{ animationDelay: "320ms" }}
+              className="hero-enter mt-10 grid max-w-[22rem] grid-cols-2 gap-3 sm:max-w-2xl sm:grid-cols-4"
+              style={{ animationDelay: "280ms" }}
             >
-              <span className="font-mono text-[10px] tracking-[0.2em] uppercase text-[#2e2b35]">
-                Built with
-              </span>
               {[
-                { label: "Solana",     color: "#9945FF" },
-                { label: "Zerion",     color: "#2962EF" },
-                { label: "MagicBlock", color: "#e8a030" },
-                { label: "QVAC",       color: "#00b388" },
-              ].map((t) => (
-                <span
-                  key={t.label}
-                  className="font-mono text-xs opacity-60 hover:opacity-90 transition-opacity duration-200 cursor-default"
-                  style={{ color: t.color }}
-                >
-                  {t.label}
-                </span>
+                ["34", "registered tools"],
+                ["6", "core policies"],
+                ["164", "tests passed"],
+                ["0", "bypass flags"],
+              ].map(([value, label]) => (
+                <div key={label} className="border-l border-[#deb25924] pl-4">
+                  <div className="font-display text-2xl font-extrabold text-aegis-gold sm:text-3xl">
+                    {value}
+                  </div>
+                  <div className="mt-1 font-mono text-[0.62rem] uppercase tracking-[0.16em] text-text-dim">
+                    {label}
+                  </div>
+                </div>
               ))}
             </div>
           </div>
 
-          {/* ── Right: Terminal ─────────────────────────────────── */}
           <div
-            className="hero-enter relative"
+            className="hero-enter relative w-full min-w-0 max-w-[22rem] sm:max-w-none"
             style={{ animationDelay: "120ms" }}
           >
-            {/* Glow halo */}
-            <div
-              className="absolute -inset-10 rounded-3xl pointer-events-none"
-              style={{
-                background:
-                  "radial-gradient(ellipse at 60% 50%, rgba(232,160,48,0.07) 0%, transparent 65%)",
-              }}
-            />
-
-            <TerminalDemo />
-
-            {/* Floating pill: Tx confirmed */}
-            <div
-              className="absolute -bottom-6 -left-3 hidden md:flex items-center gap-2 px-3.5 py-2 rounded-xl border border-[#1e1b24] bg-[#0a0910]"
-              style={{
-                boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
-                animation: "floatPill 4s ease-in-out infinite",
-              }}
-            >
-              <div className="w-2 h-2 rounded-full bg-[#4ade80] live-dot" />
-              <span className="font-mono text-[11px] text-[#4ade80]">Tx confirmed</span>
+            <div className="premium-panel rounded-[2rem] p-2 sm:p-3">
+              <div className="rounded-[1.5rem] border border-[#f6f0df0f] bg-[#080807b8] p-2">
+                <TerminalDemo />
+              </div>
             </div>
 
-            {/* Floating pill: Policies */}
-            <div
-              className="absolute -top-6 -right-3 hidden md:flex items-center gap-2 px-3.5 py-2 rounded-xl border border-[#1e1b24] bg-[#0a0910]"
-              style={{
-                boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
-                animation: "floatPill 5s ease-in-out infinite 1.5s",
-              }}
-            >
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#e8a030" strokeWidth="2">
-                <path d="M12 2L3 7v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-9-5z"/>
-              </svg>
-              <span className="font-mono text-[11px] text-[#e8a030]">8 policies active</span>
+            <div className="float-panel absolute -bottom-5 left-3 hidden rounded-2xl border border-[#57f28733] bg-[#07110bcc] px-4 py-3 shadow-[0_18px_45px_rgba(0,0,0,0.4)] backdrop-blur-xl md:block">
+              <div className="flex items-center gap-2 font-mono text-[0.68rem] uppercase tracking-[0.17em] text-aegis-green">
+                <span className="h-2 w-2 rounded-full bg-aegis-green live-dot" />
+                Fail-closed gate
+              </div>
+              <div className="mt-1 text-sm text-text-muted">No policy result, no signing.</div>
+            </div>
+
+            <div className="float-panel absolute -right-3 top-8 hidden rounded-2xl border border-[#4f7cff36] bg-[#07101bcc] px-4 py-3 shadow-[0_18px_45px_rgba(0,0,0,0.4)] backdrop-blur-xl md:block">
+              <div className="font-mono text-[0.68rem] uppercase tracking-[0.17em] text-aegis-blue">
+                Execution layer
+              </div>
+              <div className="mt-1 text-sm text-text-muted">Forked Zerion CLI</div>
             </div>
           </div>
         </div>
 
-        {/* Scroll cue */}
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 opacity-25">
-          <div className="w-px h-10 bg-gradient-to-b from-[#e8a030] to-transparent" />
-          <svg width="12" height="7" viewBox="0 0 12 7" fill="none">
-            <path d="M1 1l5 5 5-5" stroke="#e8a030" strokeWidth="1.5" strokeLinecap="round"/>
-          </svg>
+        <div className="absolute bottom-5 left-1/2 hidden -translate-x-1/2 flex-col items-center gap-2 text-aegis-gold/40 md:flex">
+          <span className="h-12 w-px bg-gradient-to-b from-aegis-gold/60 to-transparent" />
+          <span className="font-mono text-[0.58rem] uppercase tracking-[0.18em]">scroll</span>
         </div>
       </section>
 
-      {/* Stats */}
       <StatsStrip />
-
-      {/* Rest of page */}
+      <CommandCenter />
       <HowItWorks />
       <FeaturesGrid />
       <Architecture />
       <Surfaces />
       <QuickStart />
       <Footer />
-    </div>
+    </main>
   );
 }
 
-function GithubIcon() {
+function GitHubIcon() {
   return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
-      <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
+    <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12Z" />
+    </svg>
+  );
+}
+
+function ArrowIcon() {
+  return (
+    <svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M5 12h14" />
+      <path d="m13 5 7 7-7 7" />
     </svg>
   );
 }

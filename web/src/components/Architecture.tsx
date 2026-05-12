@@ -1,112 +1,96 @@
-const ARCH_LINES = [
-  { text: "$ aegis --show-architecture", kind: "prompt" },
-  { text: "", kind: "gap" },
-  { text: "┌────────────────────────────────────────────────────────┐", kind: "border" },
-  { text: "│  LLM AGENT  (Claude Sonnet · Claude Opus · GPT-5)     │", kind: "layer-1" },
-  { text: "│  Vercel AI SDK 6 · ToolLoopAgent · Per-user budget    │", kind: "detail" },
-  { text: "└─────────────────────────┬──────────────────────────────┘", kind: "border" },
-  { text: "                          │ tool calls", kind: "arrow" },
-  { text: "┌─────────────────────────▼──────────────────────────────┐", kind: "border" },
-  { text: "│  AEGIS ENGINE                                          │", kind: "layer-2" },
-  { text: "│  policies · strategies · monitors · execution          │", kind: "detail" },
-  { text: "│  MagicBlock Ephemeral Rollup (private path)            │", kind: "detail" },
-  { text: "└─────────────────────────┬──────────────────────────────┘", kind: "border" },
-  { text: "                          │ real tx", kind: "arrow" },
-  { text: "┌─────────────────────────▼──────────────────────────────┐", kind: "border" },
-  { text: "│  ZERION CLI  (forked)                                  │", kind: "layer-3" },
-  { text: "│  wallet keystore · swap · bridge · analytics           │", kind: "detail" },
-  { text: "└─────────────────────────┬──────────────────────────────┘", kind: "border" },
-  { text: "                          │ onchain tx", kind: "arrow" },
-  { text: "┌─────────────────────────▼──────────────────────────────┐", kind: "border" },
-  { text: "│  SOLANA MAINNET                                        │", kind: "layer-4" },
-  { text: "│  Jupiter swap router · SPL tokens · Solscan explorer  │", kind: "detail" },
-  { text: "└────────────────────────────────────────────────────────┘", kind: "border" },
+import { Reveal } from "./Reveal";
+
+const LAYERS = [
+  {
+    name: "Interaction surfaces",
+    detail: "Telegram, CLI, MCP, local studio",
+    color: "border-aegis-blue/40 text-aegis-blue",
+  },
+  {
+    name: "AEGIS engine",
+    detail: "agent loop, tools, memory, strategies",
+    color: "border-aegis-gold/40 text-aegis-gold",
+  },
+  {
+    name: "Policy and approval gate",
+    detail: "scoped controls before signing",
+    color: "border-aegis-green/40 text-aegis-green",
+  },
+  {
+    name: "Forked Zerion CLI",
+    detail: "wallet, portfolio, quotes, swaps",
+    color: "border-aegis-blue/40 text-aegis-blue",
+  },
+  {
+    name: "Settlement paths",
+    detail: "Solana mainnet and MagicBlock shield tools",
+    color: "border-aegis-amber/40 text-aegis-amber",
+  },
 ];
 
-const kindColor: Record<string, string> = {
-  prompt:  "#e8a030",
-  gap:     "transparent",
-  border:  "#1e1b24",
-  "layer-1": "#c8a060",
-  "layer-2": "#e8a030",
-  "layer-3": "#c8a060",
-  "layer-4": "#4ade80",
-  detail:  "#6b6376",
-  arrow:   "#4a4555",
-};
+const INVARIANTS = [
+  "Swaps continue to route through Zerion API.",
+  "Fund-moving actions require policy result and approval.",
+  "MagicBlock privacy remains a policy-selected path.",
+  "No replacement execution backend is introduced.",
+];
 
 export function Architecture() {
   return (
-    <section id="architecture" className="relative py-28 px-6">
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-px h-16 bg-gradient-to-b from-transparent to-border" />
-
-      <div className="max-w-6xl mx-auto">
-        <div className="grid lg:grid-cols-2 gap-16 items-center">
-          {/* Left: Terminal with arch diagram */}
-          <div className="terminal-window scanlines order-2 lg:order-1">
-            <div className="terminal-bar">
-              <div className="terminal-dot bg-[#ff5f56]" />
-              <div className="terminal-dot bg-[#ffbd2e]" />
-              <div className="terminal-dot bg-[#27c93f]" />
-              <span className="ml-3 font-mono text-xs text-text-muted">
-                aegis — architecture
-              </span>
+    <section id="architecture" className="section-shell">
+      <div className="section-inner">
+        <div className="grid gap-12 lg:grid-cols-[1.06fr_0.94fr] lg:items-center">
+          <Reveal>
+            <div className="premium-panel rounded-[2rem] p-4 md:p-6">
+              <span aria-hidden="true" className="ambient-orbit -left-20 top-20 h-64 w-64" />
+              <span aria-hidden="true" className="ambient-orbit -bottom-16 right-10 h-44 w-44 motion-delay-3" />
+              <div className="relative z-10 space-y-3">
+                {LAYERS.map((layer, index) => (
+                  <div key={layer.name} className="relative">
+                    {index < LAYERS.length - 1 && (
+                      <span className="absolute left-6 top-[3.75rem] h-5 w-px bg-[#deb2592b]" />
+                    )}
+                    <div className={`rounded-2xl border bg-[#080807cc] p-4 ${layer.color}`}>
+                      <div className="grid grid-cols-[2.5rem_1fr] items-center gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-current bg-[#f6f0df08] font-mono text-[0.7rem] font-bold opacity-90">
+                          {String(index + 1).padStart(2, "0")}
+                        </div>
+                        <div>
+                          <h3 className="font-display text-lg font-extrabold text-text-primary">
+                            {layer.name}
+                          </h3>
+                          <p className="mt-1 text-sm text-text-muted">{layer.detail}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
-            <div className="p-5 font-mono text-[12px] leading-[1.8] overflow-x-auto">
-              {ARCH_LINES.map((line, i) => (
-                <div
-                  key={i}
-                  className="whitespace-pre"
-                  style={{ color: kindColor[line.kind] }}
-                >
-                  {line.text || " "}
-                </div>
-              ))}
+          </Reveal>
+
+          <Reveal delay={120}>
+            <div>
+              <span className="eyebrow">Architecture</span>
+              <h2 className="headline mt-5 text-balance text-4xl leading-none md:text-6xl">
+                A forked wallet layer, not a fantasy executor.
+              </h2>
+              <p className="mt-6 text-base leading-8 text-text-muted">
+                The design is intentionally boring where money moves. AEGIS can add
+                intelligence, policy, and interfaces, but execution still passes through
+                Zerion CLI and the Zerion API.
+              </p>
+
+              <div className="mt-8 space-y-3">
+                {INVARIANTS.map((item) => (
+                  <div key={item} className="flex items-start gap-3 rounded-2xl border border-[#f6f0df10] bg-[#f6f0df05] p-3">
+                    <span className="route-node mt-1 inline-block h-2.5 w-2.5 rounded-full bg-aegis-green text-aegis-green shadow-glow-green" />
+                    <span className="text-sm leading-6 text-text-muted">{item}</span>
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
-
-          {/* Right: Explanation */}
-          <div className="order-1 lg:order-2">
-            <div className="flex items-center gap-3 mb-5">
-              <div className="h-px w-8 bg-[#e8a030]/50" />
-              <span className="font-mono text-[10px] text-[#e8a030]/70 tracking-[0.22em] uppercase">
-                Architecture
-              </span>
-            </div>
-
-            <h2 className="font-display text-4xl md:text-5xl font-700 text-white leading-tight mb-6">
-              Four clean<br />
-              layers.<br />
-              <span className="text-gradient-amber">No leaks.</span>
-            </h2>
-
-            <p className="text-text-muted leading-relaxed mb-8">
-              AEGIS composes three OSS foundations into one coherent
-              execution stack. The LLM reasons and decides. The engine
-              enforces policy. Zerion routes and executes. Solana settles.
-            </p>
-
-            {/* Layer legend */}
-            <div className="space-y-3">
-              {[
-                { color: "#c8a060", label: "LLM Agent",    note: "Claude · GPT · QVAC local" },
-                { color: "#e8a030", label: "AEGIS Engine", note: "Policies · Strategies · Monitors" },
-                { color: "#c8a060", label: "Zerion CLI",   note: "Swap router · Wallet keystore" },
-                { color: "#4ade80", label: "Solana",       note: "Mainnet settlement" },
-              ].map((item) => (
-                <div key={item.label} className="flex items-center gap-3">
-                  <div
-                    className="w-2 h-2 rounded-full flex-shrink-0"
-                    style={{ background: item.color }}
-                  />
-                  <span className="font-display font-600 text-sm text-white w-28">
-                    {item.label}
-                  </span>
-                  <span className="text-sm text-text-muted">{item.note}</span>
-                </div>
-              ))}
-            </div>
-          </div>
+          </Reveal>
         </div>
       </div>
     </section>

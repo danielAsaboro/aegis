@@ -91,7 +91,10 @@ async function runWithAutoApprove(prompt) {
       approvalId: p.approvalId,
       approved: true,
     }));
-    await appendHistory(USER_ID, [{ role: 'tool', content: responses }]);
+    await appendHistory(USER_ID, [{ role: 'tool', content: responses }], {
+      source: 'showcase',
+      metadata: { turnProfile: 'interactive', resumed: true },
+    });
     result = await runAgentTurn({ userId: USER_ID, source: 'showcase', skipBudget: true });
   }
   // Return a synthetic result that aggregates every turn's steps + text.

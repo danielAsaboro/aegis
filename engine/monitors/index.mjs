@@ -21,7 +21,7 @@ const _stopFns = [];
 export function startAllMonitors(config) {
   monitorLog.info('Starting all monitors');
 
-  _stopFns.push(startScheduler());
+  _stopFns.push(startScheduler({ messageRuntime: config.messageRuntime }));
   _stopFns.push(startPriceMonitor(config.priceInterval));
 
   if (config.walletAddress) {
@@ -42,6 +42,10 @@ export function stopAllMonitors() {
     try { stop(); } catch { /* ignore */ }
   }
   _stopFns.length = 0;
+}
+
+export async function syncMonitorJobs(opts = {}) {
+  return syncJobs({ messageRuntime: opts.messageRuntime });
 }
 
 export { syncJobs };

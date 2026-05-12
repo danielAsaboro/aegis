@@ -230,7 +230,10 @@ async function runUntilStable({ rl, userId, walletName, prompt, resumeMessages, 
     }
 
     const toolMsg = { role: "tool", content: responses };
-    await appendHistory(userId, [toolMsg]);
+    await appendHistory(userId, [toolMsg], {
+      source: "cli",
+      metadata: { turnProfile: "interactive", resumed: true },
+    });
 
     // Build resume messages: history (which now ends with toolMsg) + nothing more.
     // runAgentTurn with messages=undefined and prompt=undefined will use history.

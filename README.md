@@ -4,6 +4,8 @@
 
 Built for the Frontier *"Build an Autonomous Onchain Agent using Zerion CLI"* track.
 
+**Website:** https://tryaegis.xyz
+
 ```text
 You:  what's my portfolio?
 AEGIS: → getPortfolio()

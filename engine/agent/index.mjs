@@ -12,7 +12,7 @@ import { ToolLoopAgent } from 'ai';
 import env from '../config.mjs';
 import { createLogger } from '../core/logger.mjs';
 import { buildSystemPrompt } from './system-prompt.mjs';
-import { allTools } from './tools/index.mjs';
+import { getToolRegistry } from './tools/index.mjs';
 import { discoverSkills, renderSkillsPrompt, makeLoadSkillTool, makeReadSkillFileTool } from './skills.mjs';
 import { getHistory, appendHistory, clearHistory } from './db-memory.mjs';
 import { withinBudget, remainingBudget } from './db-budget.mjs';
@@ -25,7 +25,7 @@ const log = createLogger('agent');
 const FACT_PRELOAD_LIMIT = 20;
 
 let _agent = null;
-let _agentModelId = null;
+let _agentKey = null;
 
 let _skills = null;
 function loadSkillsOnce() {
@@ -45,28 +45,32 @@ export function refreshSkills() {
   _skills = null;
   // Force agent rebuild on next turn so the new skill list is picked up.
   _agent = null;
-  _agentModelId = null;
+  _agentKey = null;
   return listSkills();
 }
 
-export async function getAgent({ model, walletName, walletAddress, defaultChain } = {}) {
+export async function getAgent({ model, walletName, walletAddress, defaultChain, turnProfile = 'interactive' } = {}) {
   const modelId = model || env.AEGIS_AGENT_MODEL;
+  const agentKey = `${modelId}:${turnProfile}`;
 
-  if (_agent && _agentModelId === modelId) {
+  if (_agent && _agentKey === agentKey) {
     return _agent;
   }
 
   const languageModel = await resolveModel(modelId);
   const skills = loadSkillsOnce();
-  const skillsBlock = renderSkillsPrompt(skills);
+  const baseTools = getToolRegistry(turnProfile);
+  const skillsEnabled = turnProfile === 'interactive';
+  const skillsBlock = skillsEnabled ? renderSkillsPrompt(skills) : '';
   const baseSystem = buildSystemPrompt({
     walletName: walletName || env.DEFAULT_WALLET || 'default',
     walletAddress,
     defaultChain: defaultChain || env.DEFAULT_CHAIN,
+    turnProfile,
   });
   const system = skillsBlock ? `${baseSystem}\n\n${skillsBlock}` : baseSystem;
 
-  const skillTools = skills.length
+  const skillTools = skillsEnabled && skills.length
     ? { loadSkill: makeLoadSkillTool(skills), readSkillFile: makeReadSkillFileTool(skills) }
     : {};
 
@@ -74,13 +78,14 @@ export async function getAgent({ model, walletName, walletAddress, defaultChain 
     id: 'aegis-agent',
     model: languageModel,
     system,
-    tools: { ...allTools, ...skillTools },
+    tools: { ...baseTools, ...skillTools },
   });
-  _agentModelId = modelId;
+  _agentKey = agentKey;
 
   log.info({
     model: modelId,
-    tools: Object.keys(allTools).length + Object.keys(skillTools).length,
+    profile: turnProfile,
+    tools: Object.keys(baseTools).length + Object.keys(skillTools).length,
     skills: skills.length,
   }, 'Agent built');
   return _agent;
@@ -96,13 +101,13 @@ export function setActiveModel(modelId) {
   }
   env.AEGIS_AGENT_MODEL = modelId;
   _agent = null;
-  _agentModelId = null;
+  _agentKey = null;
   log.info({ model: modelId }, 'Active model switched');
   return modelId;
 }
 
 export function getActiveModel() {
-  return _agentModelId || env.AEGIS_AGENT_MODEL;
+  return env.AEGIS_AGENT_MODEL;
 }
 
 export function getAvailableModels() {
@@ -131,16 +136,25 @@ async function loadFactPreload(userId) {
   }
 }
 
-async function buildInputMessages({ userId, prompt, messages }) {
+async function buildInputMessages({ userId, prompt, messages, turnProfile = 'interactive' }) {
   if (messages) return messages;
   const history = userId ? await getHistory(userId) : [];
-  const out = [...history];
+  const out = history.map(({ role, content }) => ({ role, content }));
   if (prompt) {
-    const factMsg = await loadFactPreload(userId);
+    const factMsg = turnProfile === 'interactive' || turnProfile === 'scheduled'
+      ? await loadFactPreload(userId)
+      : null;
     if (factMsg) out.push(factMsg);
     out.push({ role: 'user', content: prompt });
   }
   return out;
+}
+
+function decoratePromptForHistory(prompt, source) {
+  if (!prompt || typeof prompt !== 'string') return prompt;
+  if (source === 'scheduled') return `[Scheduled task] ${prompt}`;
+  if (source === 'system') return `[System follow-up] ${prompt}`;
+  return prompt;
 }
 
 function isAbortError(err) {
@@ -203,6 +217,7 @@ export async function runAgentTurn({
   skipBudget = false,
   onEvents,
   abortSignal,
+  turnProfile = 'interactive',
 } = {}) {
   if (!skipBudget && userId && !(await withinBudget(userId))) {
     const remaining = await remainingBudget(userId);
@@ -212,13 +227,14 @@ export async function runAgentTurn({
     );
   }
 
-  const agent = await getAgent({ model, walletName, walletAddress });
-  const inputMessages = await buildInputMessages({ userId, prompt, messages });
+  const agent = await getAgent({ model, walletName, walletAddress, turnProfile });
+  const inputMessages = await buildInputMessages({ userId, prompt, messages, turnProfile });
 
   const telemetry = createTurnTelemetry({
     userId,
     source,
     model: model || env.AEGIS_AGENT_MODEL,
+    turnProfile,
   });
 
   if (typeof onEvents === 'function') {
@@ -250,10 +266,14 @@ export async function runAgentTurn({
   }
 
   if (!messages && prompt && userId) {
-    await appendHistory(userId, [{ role: 'user', content: prompt }]);
+    await appendHistory(
+      userId,
+      [{ role: 'user', content: decoratePromptForHistory(prompt, source) }],
+      { source, chatId, metadata: { turnProfile } },
+    );
   }
   if (userId && Array.isArray(result.response?.messages)) {
-    await appendHistory(userId, result.response.messages);
+    await appendHistory(userId, result.response.messages, { source, chatId, metadata: { turnProfile } });
   }
 
   return {
@@ -280,6 +300,7 @@ export async function streamAgentTurn({
   skipBudget = false,
   onEvents,
   abortSignal,
+  turnProfile = 'interactive',
 } = {}) {
   if (!skipBudget && userId && !(await withinBudget(userId))) {
     const remaining = await remainingBudget(userId);
@@ -289,13 +310,14 @@ export async function streamAgentTurn({
     );
   }
 
-  const agent = await getAgent({ model, walletName, walletAddress });
-  const inputMessages = await buildInputMessages({ userId, prompt, messages });
+  const agent = await getAgent({ model, walletName, walletAddress, turnProfile });
+  const inputMessages = await buildInputMessages({ userId, prompt, messages, turnProfile });
 
   const telemetry = createTurnTelemetry({
     userId,
     source,
     model: model || env.AEGIS_AGENT_MODEL,
+    turnProfile,
   });
 
   if (typeof onEvents === 'function') {
@@ -303,7 +325,11 @@ export async function streamAgentTurn({
   }
 
   if (!messages && prompt && userId) {
-    await appendHistory(userId, [{ role: 'user', content: prompt }]);
+    await appendHistory(
+      userId,
+      [{ role: 'user', content: decoratePromptForHistory(prompt, source) }],
+      { source, chatId, metadata: { turnProfile } },
+    );
   }
 
   const controller = new AbortController();

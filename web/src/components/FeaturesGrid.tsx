@@ -1,163 +1,89 @@
-"use client";
-
-import { useState } from "react";
 import { Reveal } from "./Reveal";
 
 const FEATURES = [
   {
-    icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>,
-    label: "Natural Language",
-    desc: 'Type "swap 0.01 SOL to USDC" or send a voice note. AEGIS reasons with Claude or GPT, calls the right Zerion CLI tools, and shows the quote before signing.',
-    accent: "#e8a030",
-    tag: "LLM-driven",
+    label: "Natural language agent",
+    desc: "Run the same core from Telegram or the CLI. Ask for portfolio checks, swaps, DCA plans, shields, and trade history without changing surfaces.",
+    tag: "agent core",
+    tone: "text-aegis-gold",
   },
   {
-    icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2L3 7v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-9-5z"/></svg>,
-    label: "Policy Engine",
-    desc: "9 composable policies gate every trade with AND semantics: spend-limit, cooldown, slippage, time-window, consensus, privacy, price-guard, allowlist, deny-approvals. Fail-closed by design.",
-    accent: "#c8a060",
-    tag: "9 policies",
+    label: "Forked Zerion execution",
+    desc: "AEGIS extends Zerion CLI instead of replacing it. Wallet creation, portfolio reads, quotes, swaps, and API-routed execution stay on the Zerion layer.",
+    tag: "required path",
+    tone: "text-aegis-blue",
   },
   {
-    icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/><circle cx="12" cy="16" r="1" fill="currentColor"/></svg>,
-    label: "MagicBlock Privacy",
-    desc: "Sensitive trades route through MagicBlock Ephemeral Rollups. Your balance and intent stay hidden from front-runners until the swap settles on Solana mainnet.",
-    accent: "#4ade80",
-    tag: "Shielded",
+    label: "Scoped policies",
+    desc: "Spend limits, cooldown, time window, price guard, consensus, and privacy checks compose with AND semantics before any value-moving action signs.",
+    tag: "fail closed",
+    tone: "text-aegis-green",
   },
   {
-    icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.15 13a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.06 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21 16.92z"/><path d="M15 2s4 4 4 10"/><path d="M19.5 2.5S22 5.5 22 12"/></svg>,
-    label: "Four surfaces",
-    desc: "Same agent, four ways in: Telegram bot (voice + slash commands + inline approval), CLI REPL (`aegis chat`), MCP server for Claude Code / Cursor / Codex, and a localhost browser studio.",
-    accent: "#e8a030",
-    tag: "TG · CLI · MCP · Studio",
+    label: "Human approval gates",
+    desc: "The agent can prepare a transaction, but swap execution remains approval-gated through the visible interaction surface.",
+    tag: "no god mode",
+    tone: "text-aegis-amber",
   },
   {
-    icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>,
-    label: "Local-first AI (QVAC)",
-    desc: "Voice notes transcribed on-device with Whisper. LLM runs locally via QVAC. Semantic trade history search. No API keys. No cloud. Your keys never leave the machine.",
-    accent: "#e8a030",
-    tag: "No cloud",
+    label: "MagicBlock shield tools",
+    desc: "Deposit, withdraw, and shield balance tools are available to the agent and follow the same policy and approval path as public routes.",
+    tag: "private path",
+    tone: "text-aegis-cyan",
   },
   {
-    icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>,
-    label: "Multi-Model",
-    desc: "Switch between Claude Sonnet, Claude Opus, GPT-4.1, or GPT-5 at runtime — no restart. Same prompt, same tools, same policy gate across every provider.",
-    accent: "#c8a060",
-    tag: "4 models",
+    label: "QVAC local intelligence",
+    desc: "Local speech and memory tooling reduce cloud exposure while preserving the same tool registry and structured decision flow.",
+    tag: "local first",
+    tone: "text-aegis-green",
   },
 ];
 
-function FeatureCard({
-  feat,
-  delay,
-}: {
-  feat: typeof FEATURES[0];
-  delay: number;
-}) {
-  const [hovered, setHovered] = useState(false);
-
+function FeatureIcon({ index, tone }: { index: number; tone: string }) {
   return (
-    <Reveal delay={delay}>
-      <div
-        className="card-base p-6 h-full cursor-default"
-        style={{
-          borderColor: hovered ? `${feat.accent}28` : "#1a1720",
-          boxShadow: hovered
-            ? `0 0 35px ${feat.accent}14, 0 0 80px ${feat.accent}06, inset 0 1px 0 ${feat.accent}08`
-            : "none",
-          backgroundColor: hovered ? "#120f18" : "#0e0c12",
-          transform: hovered ? "translateY(-2px)" : "translateY(0)",
-        }}
-        onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
-      >
-        {/* Icon + tag */}
-        <div className="flex items-start justify-between mb-5">
-          <div
-            className="w-10 h-10 rounded-lg flex items-center justify-center"
-            style={{
-              background: `${feat.accent}10`,
-              border: `1px solid ${feat.accent}22`,
-              color: feat.accent,
-              boxShadow: hovered ? `0 0 16px ${feat.accent}20` : "none",
-              transition: "box-shadow 0.25s ease",
-            }}
-          >
-            {feat.icon}
-          </div>
-          <span
-            className="font-mono text-[9px] tracking-[0.15em] uppercase px-2 py-0.5 rounded"
-            style={{
-              background: `${feat.accent}09`,
-              color: `${feat.accent}99`,
-              border: `1px solid ${feat.accent}18`,
-            }}
-          >
-            {feat.tag}
-          </span>
-        </div>
-
-        {/* Label */}
-        <h3 className="font-display font-700 text-[#ede9df] text-[1.05rem] mb-2.5 leading-snug">
-          {feat.label}
-        </h3>
-
-        {/* Description */}
-        <p className="text-[#4b4556] text-sm leading-relaxed">{feat.desc}</p>
-
-        {/* Bottom accent line */}
-        <div
-          className="mt-5 h-px rounded-full transition-all duration-500"
-          style={{
-            background: `linear-gradient(90deg, ${feat.accent}70, transparent)`,
-            width: hovered ? "100%" : "0%",
-          }}
-        />
-      </div>
-    </Reveal>
+    <div className={`flex h-11 w-11 items-center justify-center rounded-2xl border border-[#f6f0df12] bg-[#f6f0df06] ${tone}`}>
+      <svg aria-hidden="true" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+        {index === 0 && <path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4v8Z" />}
+        {index === 1 && <path d="M4 7h16M4 12h10M4 17h16" />}
+        {index === 2 && <path d="M12 3 4 7v6c0 5 3.4 8.6 8 9 4.6-.4 8-4 8-9V7l-8-4Z" />}
+        {index === 3 && <path d="M9 12 11.2 14.2 16 9M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />}
+        {index === 4 && <path d="M7 11V8a5 5 0 0 1 10 0v3M5 11h14v10H5V11Z" />}
+        {index === 5 && <path d="M12 2v20M4.5 6.5h15M4.5 17.5h15M6 12h12" />}
+      </svg>
+    </div>
   );
 }
 
 export function FeaturesGrid() {
   return (
-    <section
-      id="features"
-      className="relative py-24 px-6"
-      style={{
-        background:
-          "linear-gradient(to bottom, #080708, #0c0a10 50%, #080708)",
-      }}
-    >
-      {/* Grid pattern overlay */}
-      <div
-        className="absolute inset-0 pointer-events-none opacity-[0.4]"
-        style={{
-          backgroundImage:
-            "linear-gradient(rgba(232,160,48,0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(232,160,48,0.02) 1px, transparent 1px)",
-          backgroundSize: "60px 60px",
-        }}
-      />
-
-      <div className="relative max-w-6xl mx-auto">
-        {/* Header */}
-        <Reveal className="mb-16 text-center">
-          <div className="flex items-center justify-center gap-3 mb-5">
-            <div className="h-px w-8 bg-[#e8a030]/50" />
-            <span className="font-mono text-[10px] text-[#e8a030]/70 tracking-[0.22em] uppercase">
-              Capabilities
-            </span>
+    <section id="features" className="section-shell bg-[#0b0b09cc]">
+      <div className="absolute inset-0 -z-10 bg-[linear-gradient(120deg,transparent_0_18%,rgba(87,242,135,0.045)_18.1%_18.3%,transparent_18.5%_100%)]" />
+      <div className="section-inner">
+        <Reveal>
+          <div className="max-w-3xl">
+            <span className="eyebrow">What ships</span>
+            <h2 className="headline mt-5 text-balance text-4xl leading-none md:text-6xl">
+              Built for judges to verify, and builders to fork.
+            </h2>
           </div>
-          <h2 className="font-display text-4xl md:text-5xl font-800 text-white leading-tight">
-            Everything you need.<br />
-            <span className="text-[#2e2b35]">Nothing you don&apos;t.</span>
-          </h2>
         </Reveal>
 
-        {/* Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {FEATURES.map((feat, i) => (
-            <FeatureCard key={feat.label} feat={feat} delay={i * 70} />
+        <div className="mt-12 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {FEATURES.map((feature, index) => (
+            <Reveal key={feature.label} delay={index * 60}>
+              <article className="card-base group h-full p-5 transition-transform duration-150 ease-out hover:-translate-y-1 motion-reduce:transform-none">
+                <div className="flex items-start justify-between gap-4">
+                  <FeatureIcon index={index} tone={feature.tone} />
+                  <span className="rounded-full border border-[#f6f0df12] bg-[#f6f0df06] px-2.5 py-1 font-mono text-[0.6rem] uppercase tracking-[0.16em] text-text-dim">
+                    {feature.tag}
+                  </span>
+                </div>
+                <h3 className="mt-7 font-display text-xl font-extrabold leading-tight text-text-primary">
+                  {feature.label}
+                </h3>
+                <p className="mt-3 text-sm leading-7 text-text-muted">{feature.desc}</p>
+              </article>
+            </Reveal>
           ))}
         </div>
       </div>

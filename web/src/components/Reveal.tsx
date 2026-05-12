@@ -15,10 +15,16 @@ export function Reveal({ children, className = "", delay = 0 }: RevealProps) {
     const el = ref.current;
     if (!el) return;
 
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      el.classList.add("is-visible");
+      return;
+    }
+
+    let timer: ReturnType<typeof setTimeout> | null = null;
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
-          setTimeout(() => el.classList.add("is-visible"), delay);
+          timer = setTimeout(() => el.classList.add("is-visible"), delay);
           observer.disconnect();
         }
       },
@@ -26,7 +32,10 @@ export function Reveal({ children, className = "", delay = 0 }: RevealProps) {
     );
 
     observer.observe(el);
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      if (timer) clearTimeout(timer);
+    };
   }, [delay]);
 
   return (

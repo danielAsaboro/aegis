@@ -1,205 +1,112 @@
-"use client";
-
 import { Reveal } from "./Reveal";
 
 const SURFACES = [
   {
     label: "Telegram bot",
-    cmd: "pnpm start",
-    desc: "Conversational chat, voice notes, /dca, /rebalance, /alerts, /propose, /vote, /shield. Inline Approve/Deny keyboards on every value-moving action.",
-    badge: "primary",
-    accent: "#e8a030",
+    command: "pnpm start",
+    desc: "Voice, slash commands, inline approve and deny controls, and the same value-moving policy path.",
+    status: "primary",
   },
   {
     label: "CLI REPL",
-    cmd: "aegis chat",
-    desc: "Talk to the agent in your terminal. Same tools, same policy gate, same approval flow as Telegram. No bot env vars required.",
-    badge: "shipped",
-    accent: "#c8a060",
+    command: "node engine/index.mjs chat",
+    desc: "Terminal conversation surface with the same tool registry and approval flow.",
+    status: "shipped",
   },
   {
     label: "MCP server",
-    cmd: "aegis mcp",
-    desc: "STDIO MCP server exposing every AEGIS tool to Claude Code, Cursor, Codex CLI, or any MCP host. Use AEGIS as a sub-agent for your own workflows.",
-    badge: "shipped",
-    accent: "#9945FF",
+    command: "aegis mcp",
+    desc: "Expose AEGIS tools to Claude Code, Cursor, Codex CLI, or any MCP host.",
+    status: "shipped",
   },
   {
     label: "Browser studio",
-    cmd: "aegis --studio",
-    desc: "Hand-drawn whiteboard view of every signal, strategy, agent run, trade, and log line on a localhost-bound page. Read-only, token-gated, never binds beyond 127.0.0.1.",
-    badge: "shipped",
-    accent: "#4ade80",
+    command: "aegis --studio",
+    desc: "Localhost-bound visibility into signals, strategies, agent runs, trades, and logs.",
+    status: "local",
   },
   {
-    label: "Judge-trace",
-    cmd: "aegis judge-trace",
-    desc: "Single-screen proof of life for evaluators. Prints every policy decision — approve, deny, route public vs. private — for representative trades. No network. No money moves.",
-    badge: "new",
-    accent: "#e8a030",
+    label: "Judge trace",
+    command: "aegis judge-trace",
+    desc: "Single-screen proof of policy approve, deny, public route, and private route decisions.",
+    status: "demo",
   },
   {
-    label: "Live demo",
-    cmd: "pnpm demo --execute",
-    desc: "End-to-end MagicBlock private flow: deposit → optional private intra-rollup transfer → withdraw. Captures Solscan signatures for the submission.",
-    badge: "live",
-    accent: "#c8a060",
-  },
-];
-
-const ARTIFACTS = [
-  {
-    name: "ai-sdk-qvac",
-    npm: "ai-sdk-qvac",
-    desc: "Vercel AI SDK community provider for Tether QVAC. The first published path to drop a fully on-device LLM into ToolLoopAgent / generateText / streamText. Apache-2.0.",
-    install: "pnpm add ai-sdk-qvac",
-    accent: "#00b388",
+    label: "Live demo script",
+    command: "pnpm demo --execute",
+    desc: "End-to-end flow for MagicBlock shield deposit and onchain execution receipts.",
+    status: "execute",
   },
 ];
 
 export function Surfaces() {
   return (
-    <section
-      id="surfaces"
-      className="relative py-24 px-6"
-      style={{
-        background:
-          "linear-gradient(to bottom, #080708 0%, #0a0810 50%, #080708 100%)",
-      }}
-    >
-      <div className="relative max-w-6xl mx-auto">
-        <Reveal className="mb-16 text-center">
-          <div className="flex items-center justify-center gap-3 mb-5">
-            <div className="h-px w-8 bg-[#9945FF]/50" />
-            <span className="font-mono text-[10px] text-[#9945FF]/70 tracking-[0.22em] uppercase">
-              In the box
-            </span>
-          </div>
-          <h2 className="font-display text-4xl md:text-5xl font-800 text-white leading-tight">
-            Six surfaces. <span className="text-[#2e2b35]">One agent.</span>
-          </h2>
-          <p className="mt-4 text-[#6b6376] max-w-2xl mx-auto">
-            Every entry point ships in the same repo, hits the same tool
-            registry, and runs through the same fail-closed policy gate.
-            Pick the surface that fits your context — chat, terminal,
-            editor, browser, or hackathon judge.
-          </p>
-        </Reveal>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-16">
-          {SURFACES.map((s, i) => (
-            <Reveal key={s.label} delay={i * 60}>
-              <div
-                className="card-base p-6 h-full"
-                style={{
-                  borderColor: "#1a1720",
-                  background: "#0e0c12",
-                }}
-              >
-                <div className="flex items-start justify-between mb-4">
-                  <h3 className="font-display font-700 text-[#ede9df] text-base">
-                    {s.label}
-                  </h3>
-                  <span
-                    className="font-mono text-[9px] tracking-[0.18em] uppercase px-2 py-0.5 rounded"
-                    style={{
-                      background: `${s.accent}10`,
-                      color: `${s.accent}c0`,
-                      border: `1px solid ${s.accent}25`,
-                    }}
-                  >
-                    {s.badge}
-                  </span>
-                </div>
-                <code
-                  className="block font-mono text-[12.5px] mb-3 px-3 py-2 rounded border"
-                  style={{
-                    background: "rgba(232,160,48,0.04)",
-                    borderColor: "rgba(232,160,48,0.15)",
-                    color: s.accent,
-                  }}
-                >
-                  $ {s.cmd}
-                </code>
-                <p className="text-[#5a5566] text-sm leading-relaxed">
-                  {s.desc}
-                </p>
-              </div>
-            </Reveal>
-          ))}
-        </div>
-
-        {/* Reusable artifacts */}
+    <section id="surfaces" className="section-shell bg-[#080807d9]">
+      <div className="section-inner">
         <Reveal>
-          <div className="text-center mb-8">
-            <div className="flex items-center justify-center gap-3 mb-4">
-              <div className="h-px w-8 bg-[#00b388]/50" />
-              <span className="font-mono text-[10px] text-[#00b388]/70 tracking-[0.22em] uppercase">
-                Reusable artifacts
-              </span>
-              <div className="h-px w-8 bg-[#00b388]/50" />
+          <div className="grid gap-8 lg:grid-cols-[0.86fr_1.14fr] lg:items-end">
+            <div>
+              <span className="eyebrow">Surfaces</span>
+              <h2 className="headline mt-5 text-balance text-4xl leading-none md:text-6xl">
+                One agent, multiple doors.
+              </h2>
             </div>
-            <h3 className="font-display text-2xl md:text-3xl font-700 text-white">
-              Open-sourced for other builders
-            </h3>
+            <p className="max-w-2xl text-base leading-8 text-text-muted lg:justify-self-end">
+              Each interface is a different entry point into the same guarded engine.
+              The web page now makes that visible instead of hiding it in a list of features.
+            </p>
           </div>
         </Reveal>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-3xl mx-auto">
-          {ARTIFACTS.map((a, i) => (
-            <Reveal key={a.name} delay={i * 80}>
-              <div
-                className="card-base p-6 h-full"
-                style={{
-                  borderColor: `${a.accent}25`,
-                  background: "linear-gradient(180deg, #0e0c14 0%, #0c0a10 100%)",
-                  boxShadow: `0 0 30px ${a.accent}08`,
-                }}
-              >
-                <div className="flex items-center gap-2 mb-3">
-                  <span
-                    className="font-mono text-[10px] tracking-[0.18em] uppercase px-2 py-0.5 rounded"
-                    style={{
-                      background: `${a.accent}12`,
-                      color: a.accent,
-                      border: `1px solid ${a.accent}30`,
-                    }}
-                  >
-                    npm
+        <div className="mt-12 overflow-hidden rounded-[2rem] border border-[#f6f0df12] bg-[#10100de6] shadow-[0_28px_90px_rgba(0,0,0,0.36)]">
+          {SURFACES.map((surface, index) => (
+            <Reveal key={surface.label} delay={index * 45}>
+              <div className={`surface-row grid gap-4 border-b border-[#f6f0df0d] p-5 last:border-b-0 md:grid-cols-[0.7fr_0.9fr_1.25fr] md:items-center ${index % 3 === 1 ? "motion-delay-1" : index % 3 === 2 ? "motion-delay-2" : ""}`}>
+                <div className="flex items-center gap-3">
+                  <span className="route-node flex h-10 w-10 items-center justify-center rounded-2xl border border-[#deb25928] bg-[#deb25910] font-mono text-[0.68rem] font-bold text-aegis-gold">
+                    {String(index + 1).padStart(2, "0")}
                   </span>
-                  <span className="font-mono text-sm font-700 text-white">
-                    {a.name}
-                  </span>
+                  <div>
+                    <h3 className="font-display text-lg font-extrabold text-text-primary">
+                      {surface.label}
+                    </h3>
+                    <span className="font-mono text-[0.62rem] uppercase tracking-[0.18em] text-text-dim">
+                      {surface.status}
+                    </span>
+                  </div>
                 </div>
-                <p className="text-[#6b6376] text-sm leading-relaxed mb-4">
-                  {a.desc}
-                </p>
-                <code
-                  className="block font-mono text-[12.5px] px-3 py-2 rounded border"
-                  style={{
-                    background: "rgba(0,179,136,0.05)",
-                    borderColor: "rgba(0,179,136,0.18)",
-                    color: a.accent,
-                  }}
-                >
-                  $ {a.install}
+                <code className="block overflow-x-auto rounded-2xl border border-[#f6f0df10] bg-[#070707] px-4 py-3 font-mono text-[0.78rem] text-aegis-cyan">
+                  $ {surface.command}
                 </code>
-                <a
-                  href={`https://www.npmjs.com/package/${a.npm}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mt-4 inline-flex items-center gap-1.5 text-xs font-mono text-[#6b6376] hover:text-[#00b388] transition-colors"
-                >
-                  View on npmjs.com
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
-                    <line x1="5" y1="12" x2="19" y2="12" />
-                    <polyline points="12 5 19 12 12 19" />
-                  </svg>
-                </a>
+                <p className="text-sm leading-7 text-text-muted">{surface.desc}</p>
               </div>
             </Reveal>
           ))}
         </div>
+
+        <Reveal delay={120}>
+          <div className="mt-8 rounded-[2rem] border border-[#57f28726] bg-[#57f2870a] p-5 md:flex md:items-center md:justify-between md:gap-6">
+            <div>
+              <div className="font-mono text-[0.66rem] uppercase tracking-[0.18em] text-aegis-green">
+                reusable artifact
+              </div>
+              <h3 className="mt-2 font-display text-2xl font-extrabold text-text-primary">
+                ai-sdk-qvac provider
+              </h3>
+              <p className="mt-2 max-w-2xl text-sm leading-7 text-text-muted">
+                A community provider for using Tether QVAC with Vercel AI SDK workflows.
+              </p>
+            </div>
+            <a
+              href="https://www.npmjs.com/package/ai-sdk-qvac"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-5 inline-flex min-h-11 items-center rounded-2xl border border-[#57f28733] px-4 font-mono text-sm font-bold uppercase tracking-[0.12em] text-aegis-green transition-colors duration-150 ease-out hover:bg-[#57f28712] focus-ring md:mt-0"
+            >
+              View package
+            </a>
+          </div>
+        </Reveal>
       </div>
     </section>
   );

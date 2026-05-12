@@ -20,6 +20,7 @@ import { isSolana } from '../cli/utils/chain/registry.js';
 import { startSocketServer, stopSocketServer, broadcastEvent } from './ipc/socket.mjs';
 import { sweepExpiredMissions, listMissions } from './missions/index.mjs';
 import { notify } from './notify/index.mjs';
+import { createMessageRuntime } from './runtime/message-runtime.mjs';
 
 const SWEEP_INTERVAL_MS = 60_000;
 
@@ -54,70 +55,68 @@ export async function runDaemonSupervisor() {
   // 3. IPC socket — owns chat sessions for attached TUIs.
   const sessions = new Map(); // sessionId → state
   const pendingApprovals = new Map(); // approvalId → resolve(boolean)
+  const messageRuntime = createMessageRuntime({
+    walletName,
+    deliveryHandlers: {
+      socket: async ({ envelope, type, text, ...rest }) => {
+        const socket = envelope.delivery?.socket;
+        if (!socket) return;
+        const payload = type === 'response' ? { type, text } : { type, ...rest };
+        try { socket.write(JSON.stringify(payload) + '\n'); } catch { /* ignore */ }
+      },
+      notification: async ({ type, text }) => {
+        if (type !== 'response' || !text) return;
+        await notify({
+          level: 'info',
+          title: 'Scheduled agent update',
+          body: text,
+        });
+      },
+      default: async ({ type, text }) => {
+        if (type !== 'response' || !text) return;
+        await notify({ level: 'info', title: 'AEGIS agent update', body: text });
+      },
+    },
+    approvalHandlers: {
+      socket: async ({ envelope, approvals }) => {
+        const socket = envelope.delivery?.socket;
+        if (!socket) return approvals.map(() => false);
+        const decisions = [];
+        for (const req of approvals) {
+          try {
+            socket.write(JSON.stringify({
+              type: 'approval_request',
+              approvalId: req.approvalId,
+              toolName: req.toolName,
+              args: req.args ?? null,
+            }) + '\n');
+          } catch {
+            decisions.push(false);
+            continue;
+          }
+          const approved = await new Promise((resolve) => {
+            pendingApprovals.set(req.approvalId, resolve);
+          });
+          decisions.push(!!approved);
+        }
+        return decisions;
+      },
+      default: async ({ approvals }) => approvals.map(() => false),
+    },
+  });
 
-  const handleMessage = async ({ text, socket, sessionId }) => {
+  const handleMessage = async ({ text, socket, sessionId, userId: explicitUserId, chatId }) => {
     const sid = sessionId || `socket-${socket.remoteAddress || 'local'}-${Date.now()}`;
-    const userId = sessions.get(sid)?.userId || sid;
-    const { runAgentTurn, appendHistory } = await import('./agent/index.mjs');
-
-    const writeLine = (obj) => {
-      try { socket.write(JSON.stringify(obj) + '\n'); } catch { /* ignore */ }
-    };
-
-    let messages;
-    while (true) {
-      const result = await runAgentTurn({
-        userId,
-        source: 'daemon',
-        walletName,
-        prompt: messages ? undefined : text,
-        messages,
-        onEvents: (events) => {
-          events.on('tool-call-start', ({ toolName, input }) => {
-            writeLine({ type: 'tool_start', toolName, input: input ?? null });
-          });
-          events.on('tool-call-finish', ({ toolName, success, durationMs, output }) => {
-            let resultPreview = null;
-            if (success && output != null) {
-              try {
-                const s = typeof output === 'string' ? output : JSON.stringify(output);
-                if (s && s.length <= 200) resultPreview = s;
-              } catch { /* ignore */ }
-            }
-            writeLine({ type: 'tool_finish', toolName, success: !!success, durationMs: durationMs ?? null, resultPreview });
-          });
-          events.on('tool-error', ({ toolName, errorMsg }) => {
-            writeLine({ type: 'tool_error', toolName, errorMsg: errorMsg ?? '' });
-          });
-        },
-      });
-      messages = undefined;
-
-      if (result.text) writeLine({ type: 'response', text: result.text });
-
-      // Pending approvals — emit to client and wait for ack.
-      const pending = collectPendingApprovals(result.response?.messages);
-      if (pending.length === 0) break;
-      const responses = [];
-      for (const req of pending) {
-        writeLine({
-          type: 'approval_request',
-          approvalId: req.approvalId,
-          toolName: req.toolName,
-          args: req.args ?? null,
-        });
-        const approved = await new Promise((resolve) => {
-          pendingApprovals.set(req.approvalId, resolve);
-        });
-        responses.push({
-          type: 'tool-approval-response',
-          approvalId: req.approvalId,
-          approved,
-        });
-      }
-      const toolMsg = { role: 'tool', content: responses };
-      await appendHistory(userId, [toolMsg]);
-    }
+    const userId = explicitUserId || sessions.get(sid)?.userId || sid;
+    sessions.set(sid, { userId });
+    await messageRuntime.enqueueMessage({
+      userId,
+      chatId: chatId || null,
+      source: 'daemon',
+      prompt: text,
+      delivery: { type: 'socket', socket },
+      metadata: { sessionId: sid },
+    });
   };
 
   await startSocketServer({
@@ -159,6 +158,7 @@ export async function runDaemonSupervisor() {
     priceInterval: env.PRICE_POLL_INTERVAL,
     portfolioInterval: env.PORTFOLIO_POLL_INTERVAL,
     whaleInterval: env.WHALE_POLL_INTERVAL,
+    messageRuntime,
   });
 
   // 6. Mission executor — sweep expired/budget-exhausted missions.
@@ -185,6 +185,7 @@ export async function runDaemonSupervisor() {
     logger.info({ signal }, 'daemon shutting down');
     try { clearInterval(sweep); } catch { /* ignore */ }
     try { stopAllMonitors(); } catch { /* ignore */ }
+    try { messageRuntime.stop(); } catch { /* ignore */ }
     try { stopAllStrategies(); } catch { /* ignore */ }
     try { await stopSocketServer(); } catch { /* ignore */ }
     try { await closeDb(); } catch { /* ignore */ }
@@ -213,26 +214,4 @@ export async function runDaemonSupervisor() {
   // never-resolving promise so the supervisor never returns to its
   // caller.
   await new Promise(() => { /* never resolves */ });
-}
-
-function collectPendingApprovals(messages) {
-  const requests = [];
-  const callsById = new Map();
-  for (const msg of messages || []) {
-    if (msg.role !== 'assistant' || !Array.isArray(msg.content)) continue;
-    for (const part of msg.content) {
-      if (part.type === 'tool-call') {
-        callsById.set(part.toolCallId, { name: part.toolName, args: part.input ?? part.args });
-      } else if (part.type === 'tool-approval-request') {
-        const call = callsById.get(part.toolCallId) || {};
-        requests.push({
-          approvalId: part.approvalId,
-          toolCallId: part.toolCallId,
-          toolName: call.name || 'tool',
-          args: call.args,
-        });
-      }
-    }
-  }
-  return requests;
 }

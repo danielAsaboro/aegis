@@ -14,9 +14,13 @@ model AgentMessage {
   userId    String
   role      String
   content   String
+  source    String   @default("unknown")
+  chatId    String?
+  metadata  String?
   createdAt DateTime @default(now())
 
   @@index([userId, createdAt])
+  @@index([source, createdAt])
 }
 
 model AgentInvocation {
@@ -182,6 +186,27 @@ model WhaleWatch {
   createdAt DateTime @default(now())
 
   @@unique([chatId, address])
+}
+
+model ScheduledJob {
+  id            String   @id @default(cuid())
+  kind          String
+  scheduleKind  String
+  scheduleValue String
+  userId        String
+  chatId        String?
+  prompt        String?
+  payloadJson   String?
+  status        String
+  title         String?
+  lastRunAt     DateTime?
+  nextRunAt     DateTime?
+  lastError     String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([status, kind])
+  @@index([userId, createdAt])
 }
 
 model TradeExecution {

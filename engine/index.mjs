@@ -72,6 +72,8 @@ const { initDb } = await import('./db/index.mjs');
 const { createBot, setupNotifications } = await import('./bot/index.mjs');
 const { startAllMonitors, stopAllMonitors } = await import('./monitors/index.mjs');
 const { startAllStrategies, stopAllStrategies } = await import('./strategies/index.mjs');
+const { createMessageRuntime } = await import('./runtime/message-runtime.mjs');
+const { notify } = await import('./notify/index.mjs');
 const { getEvmAddress, getSolAddress, importFromKey, createWallet } = await import('../cli/utils/wallet/keystore.js');
 const { isSolana } = await import('../cli/utils/chain/registry.js');
 
@@ -144,6 +146,7 @@ async function main() {
   // ─── 3. Start Telegram bot (optional in studio-only mode) ────────────
   let bot = null;
   let notifyFn = null;
+  let messageRuntime = null;
   if (env.TELEGRAM_BOT_TOKEN) {
     const botConfig = {
       botToken: env.TELEGRAM_BOT_TOKEN,
@@ -157,6 +160,28 @@ async function main() {
     logger.info('No TELEGRAM_BOT_TOKEN — running studio-only (engine subsystems active, no bot)');
   }
 
+  messageRuntime = createMessageRuntime({
+    walletName,
+    deliveryHandlers: {
+      telegram: async ({ envelope, type, text }) => {
+        if (type !== 'response' || !text || !bot) return;
+        await bot.telegram.sendMessage(envelope.delivery.chatId, text);
+      },
+      notification: async ({ type, text }) => {
+        if (type !== 'response' || !text) return;
+        await notify({ level: 'info', title: 'Scheduled agent update', body: text });
+      },
+      default: async ({ type, text }) => {
+        if (type !== 'response' || !text) return;
+        await notify({ level: 'info', title: 'AEGIS agent update', body: text });
+      },
+    },
+    approvalHandlers: {
+      telegram: async ({ approvals }) => approvals.map(() => false),
+      default: async ({ approvals }) => approvals.map(() => false),
+    },
+  });
+
   // ─── 4. Start strategies ──────────────────────────────────────────────
   startAllStrategies({
     walletName,
@@ -169,6 +194,7 @@ async function main() {
     priceInterval: env.PRICE_POLL_INTERVAL,
     portfolioInterval: env.PORTFOLIO_POLL_INTERVAL,
     whaleInterval: env.WHALE_POLL_INTERVAL,
+    messageRuntime,
   });
 
   // ─── 6. Launch bot ────────────────────────────────────────────────────
@@ -197,6 +223,7 @@ async function main() {
       try { await studio.stop(); } catch { /* ignore */ }
     }
     stopAllMonitors();
+    if (messageRuntime) messageRuntime.stop();
     stopAllStrategies();
     if (bot) bot.stop(signal);
     try {

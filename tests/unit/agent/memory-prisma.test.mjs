@@ -43,16 +43,19 @@ before(async () => {
 });
 
 describe('Prisma-backed agent memory', () => {
-  test('appendHistory then getHistory round-trips messages', async () => {
+  test('appendHistory then getHistory round-trips messages with source metadata', async () => {
     const userId = 'user-roundtrip';
     await memory.appendHistory(userId, [
       { role: 'user', content: 'hello' },
       { role: 'assistant', content: 'hi back' },
-    ]);
+    ], { source: 'telegram', chatId: '42', metadata: { turnProfile: 'interactive' } });
     const history = await memory.getHistory(userId);
     assert.equal(history.length, 2);
     assert.equal(history[0].role, 'user');
     assert.equal(history[0].content, 'hello');
+    assert.equal(history[0].source, 'telegram');
+    assert.equal(history[0].chatId, '42');
+    assert.equal(history[0].metadata.turnProfile, 'interactive');
     assert.equal(history[1].role, 'assistant');
     assert.equal(history[1].content, 'hi back');
   });
@@ -65,9 +68,27 @@ describe('Prisma-backed agent memory', () => {
 
     const history = await memory.getHistory(userId);
     assert.equal(history.length, 60);
-    // Oldest 10 dropped → first remaining content should be "m10".
     assert.equal(history[0].content, 'm10');
     assert.equal(history[history.length - 1].content, 'm69');
+  });
+
+  test('compaction writes durable history summaries into AgentFact', async () => {
+    const userId = 'user-summary';
+    const msgs = [];
+    for (let i = 0; i < 75; i++) {
+      msgs.push({ role: i % 2 === 0 ? 'user' : 'assistant', content: `turn-${i}` });
+    }
+    await memory.appendHistory(userId, msgs, { source: 'daemon' });
+
+    const prisma = getPrisma();
+    const summaries = await prisma.agentFact.findMany({
+      where: { userId, category: 'history-summary' },
+      orderBy: { updatedAt: 'desc' },
+    });
+
+    assert.ok(summaries.length >= 1);
+    assert.match(summaries[0].value, /Session summary/);
+    assert.match(summaries[0].value, /\[daemon\] user: turn-0/);
   });
 
   test('clearHistory deletes only one user', async () => {

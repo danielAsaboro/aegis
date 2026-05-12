@@ -24,6 +24,7 @@ import {
   listSkills,
   refreshSkills,
 } from '../../agent/index.mjs';
+import { collectPendingApprovals } from '../../runtime/conversation.mjs';
 import { botLog } from '../../core/logger.mjs';
 import env from '../../config.mjs';
 import { getPrisma } from '../../db/index.mjs';
@@ -45,33 +46,6 @@ const EDIT_THROTTLE_MS = 1500;
 let _pendingCounter = 0;
 function nextPendingId() {
   return `apr-${Date.now()}-${++_pendingCounter}`;
-}
-
-function collectPendingApprovals(messages) {
-  const requests = [];
-  const callsById = new Map();
-
-  for (const msg of messages || []) {
-    if (msg.role !== 'assistant') continue;
-    const content = msg.content;
-    if (!Array.isArray(content)) continue;
-
-    for (const part of content) {
-      if (part.type === 'tool-call') {
-        callsById.set(part.toolCallId, { name: part.toolName, args: part.input ?? part.args });
-      } else if (part.type === 'tool-approval-request') {
-        const call = callsById.get(part.toolCallId) || {};
-        requests.push({
-          approvalId: part.approvalId,
-          toolCallId: part.toolCallId,
-          toolName: call.name || 'tool',
-          args: call.args,
-        });
-      }
-    }
-  }
-
-  return requests;
 }
 
 function formatApprovalPrompt(req) {
@@ -97,7 +71,7 @@ async function sendApprovalPrompts(ctx, pendingId, approvals) {
 
 async function buildFullMessages(userId, prompt, extraMessages = []) {
   const history = await getHistory(userId);
-  const out = [...history];
+  const out = history.map(({ role, content }) => ({ role, content }));
   if (prompt) out.push({ role: 'user', content: prompt });
   out.push(...extraMessages);
   return out;
@@ -221,6 +195,7 @@ export async function runUntilStableOrApproval({ ctx, userId, walletName, prompt
     walletName,
     prompt: resumeMessages ? undefined : prompt,
     messages: resumeMessages,
+    turnProfile: 'interactive',
     onEvents: (events) => {
       detach = attachLiveProgress({ ctx, events, thinkingMsg });
     },
@@ -463,7 +438,11 @@ export function registerChat(bot, config) {
 
     _pendingApprovals.delete(pendingId);
 
-    await appendHistory(pending.userId, [toolResponseMsg]);
+    await appendHistory(pending.userId, [toolResponseMsg], {
+      source: 'telegram',
+      chatId: pending.chatId,
+      metadata: { turnProfile: 'interactive', resumed: true },
+    });
 
     try {
       const resumingMsg = await ctx.reply('▶️ resuming...');

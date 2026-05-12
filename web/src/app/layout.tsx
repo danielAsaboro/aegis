@@ -24,13 +24,13 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AEGIS — Autonomous Trading Agent",
+  title: "AEGIS — Policy-Gated Onchain Agent",
   description:
-    "Privacy-first autonomous trading agent built on Zerion CLI and MagicBlock. Talk to your wallet in natural language. Every trade policy-gated. Every sensitive swap shielded from front-runners.",
+    "Autonomous onchain agent built on a forked Zerion CLI. Natural-language trading, scoped policies, human approval gates, and real Zerion-routed execution.",
   keywords: ["AEGIS", "Solana", "DeFi", "autonomous agent", "privacy", "Zerion", "MagicBlock", "trading"],
   openGraph: {
-    title: "AEGIS — Autonomous Trading Agent",
-    description: "Talk to your wallet in natural language. Every trade policy-gated, shielded from front-runners.",
+    title: "AEGIS — Policy-Gated Onchain Agent",
+    description: "Natural-language trading with scoped policies, approval gates, and Zerion-routed execution.",
     type: "website",
   },
 };
