@@ -1,12 +1,12 @@
 /**
  * E2E test: Zerion Solana swap pipeline against surfpool local simulation.
  *
- * Prerequisites (in .env or env):
+ * Prerequisites (in .env.local, .env.devnet, or env):
  *   ZERION_API_KEY      — Zerion API key (test is skipped for the quote step if absent)
  *   SOLANA_PRIVATE_KEY  — JSON-array [b0,b1,...,b63] or base58 secret key
  *
  * Run:
- *   node --env-file=.env --test tests/e2e/solana-swap-surfpool.test.mjs
+ *   node --env-file=.env.local --test tests/e2e/solana-swap-surfpool.test.mjs
  */
 
 import { before, after, describe, it } from 'node:test';
@@ -17,8 +17,6 @@ import {
   Connection,
   Keypair,
   VersionedTransaction,
-  TransactionMessage,
-  SystemProgram,
 } from '@solana/web3.js';
 
 const exec = promisify(execCb);
@@ -82,7 +80,7 @@ describe('Zerion Solana swap — surfpool local simulation', { timeout: 120_000 
     // --daemon is Linux-only; use spawn + detached to background on macOS too
     const proc = spawn('surfpool', [
       'start', '--network', 'mainnet', '--no-tui',
-      '--skip-blockhash-check', '--airdrop', walletPubkey,
+      '--airdrop', walletPubkey,
     ], { detached: true, stdio: 'ignore' });
     proc.unref();
 
@@ -144,40 +142,27 @@ describe('Zerion Solana swap — surfpool local simulation', { timeout: 120_000 
   });
 
   it('can sign and broadcast Solana tx to surfpool', { timeout: 30_000 }, async (t) => {
+    if (!swapOffers) {
+      t.skip('Zerion quote step did not run');
+      return;
+    }
+
     const executable = swapOffers?.find(o => o.attributes?.transaction_swap?.solana?.raw);
     const solanaTx = executable?.attributes?.transaction_swap?.solana;
 
-    let txHash;
-
-    if (solanaTx?.raw) {
-      // Happy path: Zerion returned a signed-placeholder tx — splice in our real sig
-      const rawBytes = Buffer.from(solanaTx.raw, 'base64');
-      const tx = VersionedTransaction.deserialize(rawBytes);
-      tx.sign([keypair]);
-      txHash = await connection.sendRawTransaction(tx.serialize(), { skipPreflight: true });
-    } else {
-      // Zerion quote blocked (wallet has no mainnet balance) — verify broadcast
-      // pipeline end-to-end with a funded native self-transfer on surfpool
-      t.diagnostic(
-        'Zerion quote was blocked (no mainnet balance); broadcast pipeline verified with native self-transfer'
-      );
-      const { blockhash } = await connection.getLatestBlockhash();
-      const tx = new VersionedTransaction(
-        new TransactionMessage({
-          payerKey: keypair.publicKey,
-          recentBlockhash: blockhash,
-          instructions: [
-            SystemProgram.transfer({
-              fromPubkey: keypair.publicKey,
-              toPubkey: keypair.publicKey,
-              lamports: 1_000,
-            }),
-          ],
-        }).compileToV0Message()
-      );
-      tx.sign([keypair]);
-      txHash = await connection.sendRawTransaction(tx.serialize(), { skipPreflight: true });
+    if (!solanaTx?.raw) {
+      const blockers = swapOffers
+        .map((o) => o.attributes?.error?.code || o.attributes?.error?.message)
+        .filter(Boolean);
+      t.skip(`Zerion returned no executable Solana swap tx${blockers.length ? ` (${blockers.join(', ')})` : ''}`);
+      return;
     }
+
+    // Happy path: Zerion returned a signed-placeholder tx — splice in our real sig.
+    const rawBytes = Buffer.from(solanaTx.raw, 'base64');
+    const tx = VersionedTransaction.deserialize(rawBytes);
+    tx.sign([keypair]);
+    const txHash = await connection.sendRawTransaction(tx.serialize(), { skipPreflight: true });
 
     assert.ok(
       typeof txHash === 'string' && txHash.length > 0,

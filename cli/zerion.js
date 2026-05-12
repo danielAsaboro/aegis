@@ -102,11 +102,6 @@ registerSingle("setup", setupCmd);
 import initCmd from "./commands/init.js";
 registerSingle("init", initCmd);
 
-// --- Chat (LLM agent — natural language surface) ---
-
-import chatCmd from "./commands/chat.js";
-registerSingle("chat", chatCmd);
-
 // --- Studio (browser UI for aegis monitoring) ---
 
 import studioCmd from "./commands/studio.js";

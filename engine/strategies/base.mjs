@@ -11,7 +11,12 @@
 
 import bus from '../core/event-bus.mjs';
 import { runPolicies } from '../policies/engine.mjs';
-import { executeTrade, getTxExplorerUrl } from '../execution/executor.mjs';
+import {
+  executeTrade,
+  getTxExplorerUrl,
+  getExecutionFailureGuidance,
+  isAdvisoryExecutionFailure,
+} from '../execution/executor.mjs';
 import { strategyLog } from '../core/logger.mjs';
 import {
   findActiveMissionForCall,
@@ -169,6 +174,25 @@ export class BaseStrategy {
           result,
           explorerUrl: getTxExplorerUrl(result.txHash, proposal.chain),
         });
+      }
+
+      if (!result.success && isAdvisoryExecutionFailure(result)) {
+        try {
+          await notify({
+            level: 'warn',
+            title: `Autonomous action halted (${result.errorCode || 'execution_failed'})`,
+            body:
+              `${proposal.amount} ${proposal.fromToken} → ${proposal.toToken}\n` +
+              `${result.error}\n${getExecutionFailureGuidance(result)}`,
+            missionId: proposal.missionId || null,
+            payload: {
+              proposalId: proposal.id,
+              strategyId: proposal.strategyId,
+              errorCode: result.errorCode || null,
+              chatId: proposal?.signal?.chatId || null,
+            },
+          });
+        } catch { /* non-fatal */ }
       }
 
       if (proposal.missionId) {

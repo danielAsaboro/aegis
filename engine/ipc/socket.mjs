@@ -26,6 +26,7 @@
  *     { type: "approval_request", approvalId, toolName, args }
  *     { type: "tool_start" | "tool_finish" | "tool_error", ... }
  *     { type: "response", text }
+ *     { type: "turn_complete" | "turn_error", messageId, errorMsg? }
  *     { type: "status", model, wallet, missions, channels, started_at }
  */
 
@@ -49,7 +50,7 @@ let _server = null;
 let _clients = new Set();
 let _onMessage = null;
 let _onApproval = null;
-let _state = { startedAt: null, model: null, wallet: null };
+let _state = { startedAt: null, model: null, wallet: null, statusFn: null };
 
 function writeLine(socket, obj) {
   if (!socket || socket.destroyed) return;
@@ -73,6 +74,9 @@ async function handleCommand(socket, cmd) {
       return;
     case 'status': {
       const missions = await listMissionsImpl({ status: 'active' });
+      const extra = typeof _state.statusFn === 'function'
+        ? await _state.statusFn()
+        : {};
       writeLine(socket, {
         type: 'status',
         startedAt: _state.startedAt,
@@ -82,6 +86,7 @@ async function handleCommand(socket, cmd) {
           id: m.id, title: m.title, kind: m.kind, status: m.status,
           spentUsd: m.spentUsd, budgetUsd: m.budgetUsd, perTxCapUsd: m.perTxCapUsd,
         })),
+        ...extra,
       });
       return;
     }

@@ -5,6 +5,7 @@
  *   /alerts                    — list active alerts
  *   /alerts add                — interactive wizard
  *   /alerts add SOL below 5 USDC 10 solana  — quick create
+ *   /alerts pause <alert-id> | /alerts resume <alert-id> | /alerts status <alert-id>
  */
 
 import { createPriceAlert } from '../../core/types.mjs';
@@ -55,16 +56,27 @@ export function registerAlerts(bot, config) {
       return;
     }
 
-    if (subcommand === 'remove') {
+    if (subcommand === 'pause' || subcommand === 'resume' || subcommand === 'remove') {
       const alertId = args[1];
-      if (!alertId) return ctx.reply('Usage: /alerts remove <alert-id>');
-      const updated = await updatePriceAlert(alertId, { status: 'cancelled' });
+      if (!alertId) return ctx.reply(`Usage: /alerts ${subcommand} <alert-id>`);
+      const status = subcommand === 'pause' ? 'paused' : subcommand === 'resume' ? 'active' : 'cancelled';
+      const updated = await updatePriceAlert(alertId, { status });
       if (!updated) return ctx.reply('Alert not found');
-      await ctx.replyWithMarkdown(`Alert \`${alertId}\` cancelled`);
+      await ctx.replyWithMarkdown(`Alert \`${alertId}\` → *${updated.status}*`);
       return;
     }
 
-    await ctx.reply('Usage: /alerts [list|add|remove]');
+    if (subcommand === 'status') {
+      const alertId = args[1];
+      if (!alertId) return ctx.reply('Usage: /alerts status <alert-id>');
+      const alerts = await getPriceAlerts(ctx.chat.id);
+      const alert = alerts.find((item) => item.id === alertId);
+      if (!alert) return ctx.reply('Alert not found');
+      await ctx.replyWithMarkdown(formatAlertList([alert]));
+      return;
+    }
+
+    await ctx.reply('Usage: /alerts [list|add|pause|resume|status|remove]');
   });
 
   bot.action(/^alert_type_(.+)$/, async (ctx) => {

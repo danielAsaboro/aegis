@@ -7,9 +7,12 @@
  */
 
 import { getPrisma } from '../db/index.mjs';
+import { createLogger } from '../core/logger.mjs';
+import { indexFact } from '../qvac/indexer.mjs';
 
 const MAX_MESSAGES = 60;
 const MAX_SUMMARIES = 8;
+const log = createLogger('agent-memory');
 
 function serializeContent(content) {
   if (typeof content === 'string') return content;
@@ -91,7 +94,7 @@ async function compactHistory(prisma, userId) {
   const lastId = rows[rows.length - 1].id;
   const key = `history_summary_${String(firstId).padStart(8, '0')}_${String(lastId).padStart(8, '0')}`;
 
-  await prisma.agentFact.upsert({
+  const fact = await prisma.agentFact.upsert({
     where: { userId_key: { userId, key } },
     update: { value: summary, category: 'history-summary' },
     create: {
@@ -101,6 +104,12 @@ async function compactHistory(prisma, userId) {
       category: 'history-summary',
     },
   });
+
+  try {
+    await indexFact(fact.id, `${fact.key} — ${fact.value} [history-summary]`);
+  } catch (err) {
+    log.warn({ err: err.message, factId: fact.id }, 'history summary indexing failed (non-fatal)');
+  }
 
   await trimSummaryFacts(prisma, userId);
   await prisma.agentMessage.deleteMany({

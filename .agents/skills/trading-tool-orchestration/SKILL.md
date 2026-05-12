@@ -1,6 +1,6 @@
 ---
 name: trading-tool-orchestration
-description: AEGIS playbook for orchestrating value-moving operations (swap / buy / sell, DCA, rebalance, price alert + auto-buy, MagicBlock shield deposit/withdraw, persisted preferences) and semantic memory recall in the correct order. Load whenever the user wants AEGIS to actually DO something with funds — buy/swap/sell tokens, set up a recurring or threshold-based purchase, move balance to/from the private vault, rebalance allocations, set a price alert that places a trade, or persist a preference — even when phrased casually ("buy some SOL", "the usual", "weekly buy", "park this in private", "remember I prefer USDC"). ALSO load when the user references prior activity fuzzily ("like last Tuesday", "the one that got denied", "trades similar to X", "show me trades I've done") so semantic memory (searchTradeHistory, summarizeSimilarTrades, searchFacts) is consulted before any new proposal. SKIP for purely informational requests where no funds move: bare price reads, portfolio totals, conceptual explanations of how a feature works, key/backup how-tos, or "what models can I use" config questions.
+description: AEGIS playbook for orchestrating value-moving operations (swap / buy / sell, DCA, rebalance, price alert + auto-buy, MagicBlock shield deposit/withdraw, persisted preferences) and semantic memory recall in the correct order. Load whenever the user wants AEGIS to actually DO something with funds — buy/swap/sell tokens, set up a recurring or threshold-based purchase, move balance to/from the private vault, rebalance allocations, set a price alert that places a trade, or persist a preference — even when phrased casually ("buy some SOL", "the usual", "weekly buy", "park this in private", "set up DCA for tokens I hold", "remember I prefer USDC"). ALWAYS load before DCA setup, rebalance setup, or any request that depends on current holdings/balances. ALSO load when the user references prior activity fuzzily ("like last Tuesday", "the one that got denied", "trades similar to X", "show me trades I've done") so semantic memory (searchTradeHistory, summarizeSimilarTrades, searchFacts) is consulted before any new proposal. SKIP only for conceptual explanations, key/backup how-tos, or model/config questions that do not need wallet state.
 ---
 
 # Trading Tool Orchestration
@@ -29,8 +29,12 @@ when the user request is value-relevant:
 - Shield deposits / withdrawals
 - Fact persistence ("remember that I prefer USDC", "forget my old DCA size")
 
-Skip the skill for purely informational requests ("what is my portfolio?",
-"what's the price of SOL?") — those are already one-tool calls.
+Skip the skill for conceptual requests ("what is DCA?", key backup
+how-tos, model/config questions) that do not need wallet state.
+
+Do not ask the user to manually list tokens, chains, balances, or "what
+they hold" when a tool can fetch it. The agent has read-only wallet tools;
+use them.
 
 ## The five flows
 
@@ -65,13 +69,23 @@ The canonical chain:
 
 DCA is a multi-tick commitment, so the orchestration is:
 
-1. **Confirm the cron expression in plain English.** "every Tuesday at
+0. **Fetch holdings first.** For prompts like "set up DCA for tokens I
+   hold", "DCA my current tokens", "use my wallet", or "what should I DCA
+   into", call `getPositions({ chain, limit: 25 })` before asking for
+   token or chain information. If the user asks for totals too, call
+   `getPortfolio` as well. Use the returned `symbol`, `quantity`, `value`,
+   and `chain` fields in your reply.
+1. **Only ask for inputs tools cannot infer.** After `getPositions`, the
+   user should only need to provide missing intent: source token, per-tick
+   amount, target token(s), schedule, or whether they want private
+   execution. Never ask them to type the tokens they already hold.
+2. **Confirm the cron expression in plain English.** "every Tuesday at
    noon" → say "I'll run this at 12:00 every Tuesday" before calling
    the tool. Misparsed cron is the #1 source of regret.
-2. Pull defaults from memory: if `searchFacts({query: "default DCA
+3. Pull defaults from memory: if `searchFacts({query: "default DCA
    size"})` returns a hit, propose that size; otherwise ask.
-3. Call `createDCAPlan`. Approval gate fires same as for a swap.
-4. After success, call `rememberFact` with the plan id under a stable
+4. Call `createDCAPlan`. Approval gate fires same as for a swap.
+5. After success, call `rememberFact` with the plan id under a stable
    key so future "pause my DCA" / "show my DCAs" requests have context.
 
 ### 3. Shield deposits / withdrawals — `depositToShield` / `withdrawFromShield`
@@ -132,8 +146,9 @@ Don't persist:
 |---|---|---|
 | "swap 0.1 SOL to USDC" | `getSwapQuote` | summarize → `executeSwap` |
 | "buy SOL like last Tuesday" | `searchTradeHistory` | mirror → `getSwapQuote` → `executeSwap` |
-| "what's my portfolio?" | `getPortfolio` | reply (no skill needed) |
-| "set up a weekly DCA into SOL" | (clarify size + cron) → `createDCAPlan` | `rememberFact` |
+| "what tokens do I hold?" | `getPositions` | summarize symbol, quantity, value, chain |
+| "set up a weekly DCA into SOL" | `getPositions` if wallet context matters; otherwise clarify size + cron | `createDCAPlan` → `rememberFact` |
+| "set up DCA for tokens I currently hold" | `getPositions` | propose based on holdings; ask only missing size/schedule/source |
 | "park 1 SOL in private" | `getShieldBalance` | `depositToShield` |
 | "what's that thing about stables?" | `searchFacts` | fall back to `recallFacts` if RAG off |
 | "remember I prefer Jupiter" | `rememberFact` | (auto-indexed for future search) |

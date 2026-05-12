@@ -164,7 +164,7 @@ Map every relevant competitor, substitute, and adjacent project for a given cryp
    - **Dead projects** — past attempts. Note why they failed (technical / market timing / team / regulatory). **Failures reveal landmines.** Don't skip dead projects just because they're inconvenient.
    - **Adjacent** — solving related problems. Could become competitors or partners.
 3. Search across:
-   - WebSearch for Solana app directories (Solana Compass, Step Finance, Solscan), GitHub, crypto Twitter, app stores
+   - WebSearch for Solana app directories (Solana Compass, Step Finance, Solana Explorer), GitHub, crypto Twitter, app stores
    - DefiLlama (see Mode 4) for TVL and protocol presence
    - Zerion CLI for any named protocol: `zerion analyze <treasury>` for portfolio + activity, then `zerion history <treasury> --limit 25` to confirm it's not abandoned, and `zerion positions <treasury> --positions defi` for live holdings
 4. Assess defensibility — what's the moat? Distribution, data, network effects, capital efficiency, regulatory positioning, or none?

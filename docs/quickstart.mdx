@@ -1,0 +1,76 @@
+---
+title: "Quickstart"
+description: "Install AEGIS, configure the required environment, and run the long-lived Telegram agent runtime."
+icon: "rocket"
+---
+
+<Info>
+  Prerequisites:
+  - Node.js 20 or newer
+  - `pnpm`
+  - A Zerion API key
+  - A Solana private key for the wallet AEGIS will provision on first boot
+</Info>
+
+<Steps>
+  <Step title="Install dependencies">
+
+```bash
+git clone https://github.com/danielAsaboro/aegis.git
+cd aegis
+pnpm install
+```
+
+  </Step>
+  <Step title="Create the environment file">
+
+```bash
+cp .env.example .env
+```
+
+Set these values before first run: `ZERION_API_KEY`, `SOLANA_PRIVATE_KEY`, and `TELEGRAM_BOT_TOKEN`.
+
+  </Step>
+  <Step title="Initialize the database">
+
+```bash
+pnpm db:push
+```
+
+  </Step>
+  <Step title="Start AEGIS">
+
+```bash
+node engine/index.mjs
+```
+
+  </Step>
+</Steps>
+
+## First boot behavior
+
+On first boot, AEGIS looks for the wallet named by `DEFAULT_WALLET` and provisions it automatically:
+
+- If `SOLANA_PRIVATE_KEY` is set, AEGIS imports that wallet.
+- If no key is set, AEGIS generates a fresh keypair.
+- The wallet is then reused on later runs.
+
+## Typical first Telegram messages
+
+```text
+what's my portfolio?
+swap 0.01 SOL to USDC
+set a DCA — buy $5 SOL every 30 minutes
+```
+
+## What happens on a trade
+
+1. The agent asks Zerion for a quote.
+2. AEGIS builds a proposal.
+3. The policy engine checks spend limits, cooldowns, time windows, slippage, consensus, and privacy rules.
+4. The surface asks for approval when required.
+5. Execution routes through the Zerion CLI path.
+
+<Tip>
+  If you want a quick proof that the policy path is wired correctly without moving funds, run `pnpm judge-trace`.
+</Tip>

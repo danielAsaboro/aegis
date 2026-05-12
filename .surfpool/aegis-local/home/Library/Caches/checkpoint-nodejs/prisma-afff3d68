@@ -1,0 +1,53 @@
+{
+  "last_reminder": 1778757890881,
+  "cached_at": 1778757856570,
+  "version": "6.19.3",
+  "cli_path": "/Volumes/Development/solana/hackathon/frontier/zerion-magicblock/aegis/node_modules/.pnpm/prisma@6.19.3_typescript@5.9.3/node_modules/prisma/build/index.js",
+  "output": {
+    "product": "prisma",
+    "previous_version": "6.19.3",
+    "checkpoint_version": 4,
+    "local_timestamp_without_timezone": "2026-05-14T12:24:14Z",
+    "current_version": "7.8.0",
+    "current_release_date": 1776867418,
+    "client_event_id": "40125769-54e9-4797-860d-5d233be5a7d0",
+    "current_download_url": "https://github.com/prisma/prisma",
+    "package": "prisma",
+    "release_tag": "latest",
+    "install_command": "npm install --save-dev prisma",
+    "schema_providers": [
+      "sqlite"
+    ],
+    "schema_preview_features": [],
+    "schema_generators_providers": [
+      "prisma-client-js"
+    ],
+    "current_changelog_url": "https://github.com/prisma/prisma",
+    "outdated": true,
+    "project_website": "https://prisma.io",
+    "alerts": []
+  },
+  "product": "prisma",
+  "cli_install_type": "local",
+  "local_timestamp": "2026-05-14T12:26:09+01:00",
+  "project_hash": "dc9056b0",
+  "cli_path_hash": "afff3d68",
+  "endpoint": "https://checkpoint.prisma.io",
+  "arch": "arm64",
+  "os": "darwin",
+  "node_version": "v24.14.0",
+  "command": "db push --skip-generate --accept-data-loss",
+  "schema_providers": [
+    "sqlite"
+  ],
+  "schema_preview_features": [],
+  "schema_generators_providers": [
+    "prisma-client-js"
+  ],
+  "cache_file": "/Volumes/Development/solana/hackathon/frontier/zerion-magicblock/aegis/.surfpool/aegis-local/home/Library/Caches/checkpoint-nodejs/prisma-afff3d68",
+  "cache_duration": 43200000,
+  "remind_duration": 172800000,
+  "timeout": 5000,
+  "unref": true,
+  "child_path": "/Volumes/Development/solana/hackathon/frontier/zerion-magicblock/aegis/node_modules/.pnpm/prisma@6.19.3_typescript@5.9.3/node_modules/prisma/build/child"
+}

@@ -1,29 +1,60 @@
 # AEGIS
 
-**AEGIS is a self-provisioning autonomous onchain trading agent.** Talk to it in natural language over Telegram or the CLI; it reasons through your ChatGPT subscription (Codex CLI) or a fully local QVAC LLM, calls Zerion CLI commands as tools, and every value-moving action runs through a scoped, fail-closed policy engine before signing. On first boot it creates its own wallet — no manual setup needed.
+**AEGIS is a self-provisioning autonomous onchain trading agent.** Its operator-facing interface is Telegram plus the long-running runtime: you start AEGIS once, send it messages or let scheduled signals drive it, and every value-moving action runs through a scoped, fail-closed policy engine before signing. On first boot it creates its own wallet — no manual setup needed.
 
 Built for the Frontier *"Build an Autonomous Onchain Agent using Zerion CLI"* track.
 
 **Website:** https://tryaegis.xyz
 
 ```text
-You:  what's my portfolio?
-AEGIS: → getPortfolio()
-       Total: $1,847.32 (+1.4% 24h)
-        SOL    8.21 ($1,612)
-        USDC   234.99
+Telegram: "what's my portfolio?"
+AEGIS:    → getPortfolio()
+          Total: $1,847.32 (+1.4% 24h)
+           SOL    8.21 ($1,612)
+           USDC   234.99
 
-You:  swap 0.01 SOL to USDC
-AEGIS: → getSwapQuote()
-       Quote: 0.01 SOL → ~1.94 USDC (Jupiter)
-       Approve? [y/N] y
-       → executeSwap()  (policies passed: spend-limit, cooldown)
-       ✅ Tx: https://solscan.io/tx/4xK2…ZqVk
+Telegram: "swap 0.01 SOL to USDC"
+AEGIS:    → getSwapQuote()
+          Quote: 0.01 SOL → ~1.94 USDC (Zerion route)
+          Approve? [Telegram button]
+          → executeSwap()  (policies passed: spend-limit, cooldown)
+          ✅ Tx: https://explorer.solana.com/tx/4xK2…ZqVk
 
-You:  set a DCA — buy $5 SOL every 30 minutes
-AEGIS: → commitMission() → createDCAPlan()
-       ✅ DCA scheduled. Policy cap: $25/tick, $100/day.
+Telegram: "set a DCA — buy $5 SOL every 30 minutes"
+AEGIS:    → commitMission() → createDCAPlan()
+          ✅ DCA scheduled. Policy cap: $25/tick, $100/day.
 ```
+
+---
+
+## Judge Path
+
+Use this if you are evaluating the submission quickly:
+
+```bash
+cp .env.example .env.local
+# set TELEGRAM_BOT_TOKEN, ZERION_API_KEY, SOLANA_PRIVATE_KEY
+pnpm install
+pnpm db:push
+pnpm start
+```
+
+Then in Telegram:
+
+```text
+swap 0.01 SOL to USDC
+```
+
+Expected path:
+
+```text
+Telegram message -> Zerion quote -> scoped approval/policy gate -> signed execution -> explorer proof
+```
+
+- Mainnet Zerion swap proof: `https://explorer.solana.com/tx/5aK9pZ9KCBhKawgcMdFGmS5W8rQbRoQ1utiUPSA7tHKF2f1d6zxq1gNRjWpqwMEdn4oA2JBJ5yGa5bqyXaZ16Ko6`
+- Readiness check: `pnpm judge-status` (add `-- --live` to probe Zerion API connectivity)
+- Policy proof without funds: `pnpm judge-trace`
+- Internal harsh checklist: [docs/frontier-checklist.mdx](/Volumes/Development/solana/hackathon/frontier/zerion-magicblock/aegis/docs/frontier-checklist.mdx)
 
 ---
 
@@ -31,13 +62,11 @@ AEGIS: → commitMission() → createDCAPlan()
 
 ```bash
 git clone <this-repo> && cd aegis
-cp .env.example .env
-# Edit .env — set TELEGRAM_BOT_TOKEN, ZERION_API_KEY, SOLANA_PRIVATE_KEY
+cp .env.example .env.local
+# Edit .env.local — set TELEGRAM_BOT_TOKEN, ZERION_API_KEY, SOLANA_PRIVATE_KEY
 pnpm install
 pnpm db:push
-node engine/index.mjs --start   # bot + monitors + strategies, self-provisions wallet on first run
-# OR
-node engine/index.mjs chat      # CLI REPL — no bot env vars needed
+pnpm start                      # bot + monitors + strategies, self-provisions wallet on first run
 ```
 
 Requires Node.js ≥ 20.
@@ -48,10 +77,10 @@ Requires Node.js ≥ 20.
 
 AEGIS deliberately rejects API-key billed providers. Routing the agent through a metered key charges the wrong party and reintroduces the cloud dependency the QVAC integration removes. Two paths only:
 
-- **`codex/default`** — drives [Codex CLI](https://developers.openai.com/codex/cli) as the language-model backend; uses your **ChatGPT subscription** (`codex login` once). Default. No keys.
+- **`codex/default`** — drives [Codex CLI](https://developers.openai.com/codex/cli) as the language-model backend; uses your **ChatGPT subscription** (`codex login` once). Fallback when local QVAC is not configured. No keys.
 - **`qvac/local`** — fully on-device LLM via the Bare-runtime QVAC sidecar (`@qvac/llm-llamacpp`). Run `pnpm qvac:download` and set `QVAC_LLM_MODEL_PATH`. No keys, no cloud.
 
-Switch at runtime: `/agent model <id>` (Telegram) or `:model <id>` (CLI REPL).
+Switch at runtime with `/agent model <id>` in Telegram.
 
 ### Required env
 
@@ -65,7 +94,7 @@ Switch at runtime: `/agent model <id>` (Telegram) or `:model <id>` (CLI REPL).
 
 | Variable | Default | What for |
 |---|---|---|
-| `AEGIS_AGENT_MODEL` | `codex/default` | Active LLM. Switch with `/agent model` at runtime. |
+| `AEGIS_AGENT_MODEL` | auto (`qvac/local` when configured, else `codex/default`) | Active LLM. Switch with `/agent model` at runtime. |
 | `AEGIS_AGENT_AUTONOMY` | `advisory` | `off` / `advisory` (LLM proposes, human approves) / `autonomous`. |
 | `AEGIS_AGENT_MAX_INVOCATIONS_PER_HOUR` | `20` | Hard cap on agent turns per user/strategy. |
 | `DEFAULT_WALLET` | `main` | OWS keystore wallet name. Auto-created on first boot. |
@@ -101,10 +130,10 @@ Switch at runtime: `/agent model <id>` (Telegram) or `:model <id>` (CLI REPL).
 └────────────────────────────────────────────────────────┘
 ```
 
-Two surfaces share the same `runAgentTurn()` core, tool registry, and policy gate:
+Two long-running paths share the same `runAgentTurn()` core, tool registry, and policy gate:
 
 - **Telegram** — `engine/bot/handlers/chat.mjs`. Plain text → agent. Inline Approve/Deny keyboards for every value-moving action. `/agent model`, `/agent autonomy`, `/agent reset`.
-- **CLI** — `aegis chat` (REPL) or `aegis chat "<prompt>"` (one-shot). No bot env required.
+- **Daemon / scheduler** — `engine/daemon-supervisor.mjs` plus `engine/runtime/message-runtime.mjs`. Scheduled jobs and attached clients enqueue the same message envelope shape the Telegram surface uses.
 
 ---
 
@@ -150,10 +179,12 @@ Destructive credential ops (wallet create/import, agent token create/revoke) are
 
 ## MagicBlock private execution
 
-Trades above `PRIVACY_THRESHOLD_USD` (default $100) or involving tokens in `PRIVACY_TOKENS` (default `SOL,USDC`) are routed through MagicBlock's ephemeral rollup instead of broadcasting directly to Solana mainnet.
+The privacy policy can route supported shield actions through MagicBlock's ephemeral rollup. Cross-token private swaps are intentionally refused today; the supported private path is same-token shielding.
 
-```
-deposit → delegateSpl (ephemeral rollup) → private transfer → withdraw
+```text
+Implemented target flow: deposit → delegateSpl (ephemeral rollup) → private transfer → withdraw
+Verified today: deposit → delegateSpl with `private: true`
+Blocked today: private transfer + withdraw cycle, awaiting MagicBlock SDK guidance on `DelegationRecordInvalidAccountOwner`
 ```
 
 The `deposit()` path handles native SOL automatically — it wraps SOL to WSOL, creates the associated token account idempotently, then delegates to the rollup via the SDK's `delegateSpl`. No manual account setup required.
@@ -165,36 +196,56 @@ Devnet validator: `MAS1Dt9qreoRMQ14YQuhg8UTZMMzDdKhmkZMECCzk57` (resolved live f
 ## Testing
 
 ```bash
-pnpm test:unit                  # 160+ unit tests — policy gate, agent tools, missions, strategies
+pnpm test:unit                  # deterministic unit suite — policy gate, agent tools, missions, strategies
 pnpm test:e2e                   # 46 e2e tests — requires ZERION_API_KEY + SOLANA_PRIVATE_KEY + devnet SOL
-node --env-file=.env --test tests/e2e/solana-swap-surfpool.test.mjs  # Zerion swap signed + broadcast locally
+node --env-file=.env.local --test tests/e2e/solana-swap-surfpool.test.mjs  # executable Zerion swap tx signed + broadcast locally when quote is not blocked
+AEGIS_RUN_QVAC_LIVE_TESTS=1 pnpm test:qvac  # optional live local-GGUF probe
 ```
 
-### End-to-end coverage (46/46)
+### End-to-end coverage
 
 | Suite | What it exercises |
 |---|---|
 | `aegis.e2e` | Engine boot, policy approval, DCA storage, consensus voting, shield store |
 | `dca-strategy` | Plan lifecycle, scheduler sync, policy gate, Prisma persistence across restart |
 | `group-consensus` | N-of-M vote accumulation, expiry, cross-restart persistence |
-| `privacy-trading` | Privacy routing, real MagicBlock deposit (WSOL wrap → delegate), ephemeral transfer |
+| `privacy-trading` | Privacy routing, real MagicBlock deposit (WSOL wrap → delegate) |
 | `signal-automation` | Alert persistence, event bus, DipBuyer/TakeProfit/Rebalancer strategy evaluation |
 | `minimal-real` | Live Zerion API (64 chains), Telegram bot, Solana devnet, MagicBlock connectivity |
 | `working-wallet` | Keypair, balance, env coverage |
-| `solana-swap-surfpool` | Zerion SOL→USDC quote → sign → broadcast on surfpool local simulation |
+| `solana-swap-surfpool` | Zerion SOL→USDC quote inspection; signs and broadcasts only when Zerion returns an executable Solana tx |
 
 ### Local Solana swap simulation (surfpool)
 
-The swap e2e test runs entirely locally — no mainnet exposure:
+AEGIS now ships a first-class local mode for Solana execution testing:
 
-1. Starts `surfpool` cloning mainnet state, airdrops the test wallet
-2. Fetches a live Zerion swap quote (SOL→USDC)
-3. Signs the returned transaction with the keypair from `SOLANA_PRIVATE_KEY`
-4. Broadcasts to surfpool and asserts a txHash
+1. Starts or reuses `surfpool` on `127.0.0.1:8899`
+2. Creates an isolated local OWS/config profile under `.surfpool/aegis-local/`
+3. Imports `SOLANA_PRIVATE_KEY` as a disposable local Zerion wallet
+4. Creates a fresh Solana-only policy and agent token for that local wallet
+5. Fetches a live Zerion quote (SOL→USDC)
+6. If Zerion returns an executable transaction, signs it and broadcasts it to surfpool instead of mainnet
+
+This mode keeps **Zerion quotes live** while forcing **Solana broadcast local** for executable quotes, so you can test the real swap path without spending mainnet funds.
 
 ```bash
-node --env-file=.env --test tests/e2e/solana-swap-surfpool.test.mjs
+pnpm local:bootstrap
+pnpm local:swap
+pnpm local:daemon
+pnpm local:agent -- "swap 0.001 SOL to USDC on Solana"
+pnpm test:e2e:surfpool-live
 ```
+
+Notes:
+
+- Local mode does not touch your real `~/.zerion` profile.
+- It uses a repo-local isolated `HOME` and `DATA_DIR`.
+- `local:agent` sends a real inbound message over the daemon socket, so you
+  can test the normal message-driven runtime instead of a one-shot helper path.
+- When a local QVAC GGUF exists in `~/.cache/aegis/qvac/`, local mode uses
+  `qvac/local` automatically instead of `codex/default`.
+- The local swap path still depends on Zerion returning a live executable quote for the configured wallet address.
+- If Zerion returns only a blocked quote, the command reports that honestly instead of substituting a self-transfer.
 
 ---
 
@@ -219,8 +270,8 @@ node --env-file=.env --test tests/e2e/solana-swap-surfpool.test.mjs
 ## Multi-model
 
 ```bash
-AEGIS_AGENT_MODEL=codex/default node engine/index.mjs --start
-AEGIS_AGENT_MODEL=qvac/local    node engine/index.mjs --start
+AEGIS_AGENT_MODEL=codex/default node engine/index.mjs
+AEGIS_AGENT_MODEL=qvac/local    node engine/index.mjs
 ```
 
 Or live-switch without restarting:
@@ -289,7 +340,7 @@ End-to-end Telegram walkthrough (portfolio → swap → approval → DCA → mod
 
 <https://www.youtube.com/playlist?list=PLeERy8YL4mpRKIQyVis1cI1L9gk8j63Oi>
 
-Solscan tx hashes for the demo run are listed in `TRACKS.md`.
+Solana Explorer tx hashes for the demo run are listed in `TRACKS.md`.
 
 ---
 |---------|-------------|---------|

@@ -128,7 +128,7 @@ async function startDaemon(flags) {
     return;
   }
 
-  const entry = fileURLToPath(new URL('../engine/index.mjs', import.meta.url));
+  const entry = fileURLToPath(new URL('../../engine/index.mjs', import.meta.url));
   const env = {
     ...process.env,
     AEGIS_DAEMON: '1',

@@ -9,6 +9,7 @@ import { getActiveDCAPlans } from '../../store/plans.mjs';
 import { getActiveRebalanceTargets, getActivePriceAlerts } from '../../store/plans.mjs';
 import { getExecutionStats } from '../../store/executions.mjs';
 import { getSchedulerStatus } from '../../monitors/scheduler.mjs';
+import { listScheduledJobs } from '../../runtime/scheduled-jobs.mjs';
 import { formatPortfolio } from '../formatters.mjs';
 import bus from '../../core/event-bus.mjs';
 
@@ -33,10 +34,11 @@ export function registerStatus(bot, config) {
       }
 
       // Active strategies
-      const [dcaPlans, rebalTargets, alerts, execStats] = await Promise.all([
+      const [dcaPlans, rebalTargets, alerts, scheduledJobs, execStats] = await Promise.all([
         getActiveDCAPlans(),
         getActiveRebalanceTargets(),
         getActivePriceAlerts(),
+        listScheduledJobs({ chatId: ctx.chat.id }),
         getExecutionStats(),
       ]);
       const scheduler = getSchedulerStatus();
@@ -47,9 +49,11 @@ export function registerStatus(bot, config) {
         portfolioMsg,
         '',
         '*Active Strategies*',
-        `DCA Plans: ${dcaPlans.length} active (${scheduler.activeJobs} cron jobs)`,
+        `DCA Plans: ${dcaPlans.length} active`,
         `Rebalance Targets: ${rebalTargets.length}`,
         `Price Alerts: ${alerts.length}`,
+        `Scheduled Jobs: ${scheduledJobs.filter((job) => job.status === 'active').length} active / ${scheduledJobs.length} total`,
+        `Scheduler Handles: ${scheduler.activeJobs}`,
         '',
         '*Execution Stats*',
         `Total: ${execStats.total} | Success: ${execStats.successful} | Failed: ${execStats.failed}`,

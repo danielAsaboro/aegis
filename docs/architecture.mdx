@@ -1,0 +1,84 @@
+---
+title: "Architecture"
+description: "How the AEGIS agent, policy engine, Zerion CLI fork, and private execution path work together."
+icon: "diagram-project"
+---
+
+AEGIS is a fork of Zerion CLI with an agent runtime around it. The execution layer stays narrow on purpose: the model can reason over tools, but value-moving actions still flow through concrete execution modules, policy checks, and the forked Zerion CLI or MagicBlock client.
+
+![AEGIS architecture diagram](/images/aegis-architecture.svg)
+
+For the end-to-end transaction path, read [How AEGIS works](/how-aegis-works).
+
+## Core layers
+
+### Agent loop
+
+`engine/agent/index.mjs` owns the shared `runAgentTurn()` flow. It builds a Vercel AI SDK 6 `ToolLoopAgent`, loads the active model, attaches the tool registry, preloads user memory, enforces invocation budget checks, and emits telemetry for each turn.
+
+The same agent loop is used by Telegram, scheduled/background turns, MCP, and local runtime messages.
+
+### Tool registry
+
+`engine/agent/tools/index.mjs` is the canonical tool surface. It exposes portfolio, market, swap, DCA, policy, shield, wallet, memory, RAG, and mission tools.
+
+Write tools are marked for approval. Value-moving write tools also run policy checks inside their execution body, so surface approval is not the security boundary by itself.
+
+### Policy engine
+
+`engine/policies/engine.mjs` is the hard gate. It composes spend-limit, cooldown, time-window, price-guard, consensus, and privacy policies.
+
+Empty policy config throws `MissingPolicyConfigError`. The executor also refuses proposals that do not carry `policyResult.approved === true`.
+
+### Execution layer
+
+`engine/execution/executor.mjs` handles last-mile trade execution. It resolves the wallet, gets a live Zerion quote, checks quote blockers, calls the forked CLI swap function, records spend/cooldown state, logs the result, and emits runtime events.
+
+`engine/execution/private-executor.mjs` handles the MagicBlock shield route for supported private actions.
+
+### Zerion CLI fork
+
+The forked CLI remains the wallet and execution substrate. AEGIS wraps it with higher-level tools instead of replacing it. Public swap execution flows through `cli/utils/trading/swap.js` and the Zerion API path.
+
+### MagicBlock private execution
+
+The privacy policy and shield tools can route eligible Solana actions into the MagicBlock path. The implemented and verified path is shield deposit through native SOL wrapping, idempotent token-account creation, and `delegateSpl({ private: true })`.
+
+The private transfer plus withdraw cycle is documented as a current SDK blocker in [Track evidence](/track-evidence).
+
+### QVAC sidecar
+
+QVAC native packages require the Bare runtime. AEGIS runs under Node.js, so `engine/qvac/sidecar/` hosts QVAC in a Bare subprocess and speaks line-delimited JSON-RPC from Node.
+
+The local model route `qvac/local` is exposed as an AI SDK-compatible provider in `engine/qvac/ai-sdk-provider/`.
+
+## Surfaces
+
+<CardGroup cols={2}>
+  <Card title="Telegram" icon="message" href="/quickstart">
+    Natural-language chat plus inline approval controls for value-moving actions.
+  </Card>
+  <Card title="Daemon Runtime" icon="terminal" href="/cli-reference">
+    Long-running runtime for monitors, scheduler ticks, attached clients, and autonomous execution.
+  </Card>
+  <Card title="Studio" icon="grid-2x2" href="/studio">
+    Local browser UI for monitoring strategies, trades, and agent activity.
+  </Card>
+  <Card title="MCP" icon="plug" href="/mcp-codex">
+    Expose AEGIS tools to Codex, Claude Code, Cursor, and other hosts.
+  </Card>
+</CardGroup>
+
+## Runtime services
+
+### Scheduler
+
+`engine/runtime/scheduled-jobs.mjs`, `engine/daemon-supervisor.mjs`, and monitor modules enqueue background work through the same message/runtime shape. Scheduled turns use a reduced tool registry so background jobs cannot silently gain the full interactive write surface.
+
+### Studio
+
+Studio lives under `engine/studio/`. It is localhost-bound, token-gated, and off by default. It reads runtime state, strategies, trades, logs, and agent telemetry for demos and debugging.
+
+### MCP
+
+`engine/mcp-server.mjs` mirrors the AEGIS tool surface for external hosts. MCP does not replace AEGIS policy enforcement; write tools still execute through the same gated implementation.

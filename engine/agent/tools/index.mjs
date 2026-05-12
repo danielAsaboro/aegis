@@ -6,8 +6,8 @@
  *
  * Mutation safety:
  *   - Read tools: no `needsApproval`.
- *   - Write tools: `needsApproval: true` so the chat surface (Telegram /
- *     CLI) must confirm with a human before the SDK calls execute().
+ *   - Write tools: `needsApproval: true` so the operator-facing surface
+ *     must confirm with a human before the SDK calls execute().
  *   - Even with approval, write tools that move funds (executeSwap) run
  *     through `runPolicies()` inside execute(); the policy gate is
  *     authoritative regardless of what the surface does.

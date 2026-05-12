@@ -1,0 +1,32 @@
+---
+title: "Studio"
+description: "AEGIS Studio is the local browser UI for live monitoring and operator review."
+icon: "grid-2x2"
+---
+
+AEGIS Studio exposes a local operator UI over `127.0.0.1` so you can inspect agent runs, trades, strategies, and logs without opening the app to the public internet.
+
+## Start Studio
+
+```bash
+node engine/index.mjs --studio
+```
+
+Change the port if needed:
+
+```bash
+node engine/index.mjs --studio --studio-port 9000
+```
+
+## What Studio shows
+
+- Overview metrics
+- Live event feed
+- Agent runs
+- Strategies
+- Trades
+- Logs
+
+## Security model
+
+The engine prints a one-time URL with a session token. That token gates `/api` and `/ws` requests, and the server stays bound to `127.0.0.1`.

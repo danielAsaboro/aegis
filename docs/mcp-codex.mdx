@@ -1,0 +1,42 @@
+---
+title: "MCP integration"
+description: "Expose AEGIS as an MCP server for Codex, Claude Code, Cursor, and similar hosts."
+icon: "plug"
+---
+
+AEGIS exposes its tool catalog over the Model Context Protocol. This lets you keep AEGIS as the execution and policy layer while using a host like Codex or Claude Code as the reasoning surface.
+
+## Why use MCP
+
+- You reuse the host's own subscription auth.
+- AEGIS keeps its tool registry and policy checks.
+- Host approval UI becomes an extra gate, not the only gate.
+
+## Start the MCP server
+
+```bash
+node --env-file=.env.local engine/index.mjs mcp
+```
+
+## Codex CLI example
+
+Add an MCP server entry that points to the AEGIS runtime:
+
+```toml
+[mcp_servers.aegis]
+command = "node"
+args = ["/absolute/path/to/engine/index.mjs", "mcp"]
+
+[mcp_servers.aegis.env]
+ZERION_API_KEY = "zk_dev_..."
+DEFAULT_WALLET = "main"
+DEFAULT_CHAIN = "solana"
+```
+
+Then use `/mcp` in Codex and verify the AEGIS tool set is visible.
+
+## Tool behavior
+
+Read tools like `getPortfolio` and `getTokenPrice` work directly through MCP.
+
+Write tools such as `executeSwap`, `depositToShield`, and DCA mutations still run through AEGIS policy evaluation inside the tool execution path.

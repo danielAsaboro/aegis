@@ -1,0 +1,97 @@
+---
+title: "How AEGIS works"
+description: "The execution path from natural-language intent to policy-gated Zerion or MagicBlock transaction."
+icon: "route"
+---
+
+AEGIS is an agent layer on top of the forked Zerion CLI. It turns user intent into tool calls, but it does not replace the wallet, signing, swap routing, or policy boundary.
+
+The critical path is:
+
+```text
+user intent
+  -> active model
+  -> AEGIS tool registry
+  -> approval gate for write tools
+  -> policy gate inside the tool/executor path
+  -> forked Zerion CLI or MagicBlock private execution
+  -> signed transaction, denial, or receipt
+```
+
+<Info>
+  The approval gate and policy gate are separate controls. A surface can ask for human approval before a write tool runs, but `executeSwap()` still runs `runPolicies()` before it calls the executor.
+</Info>
+
+## 1. Intent enters a surface
+
+The same agent core can be reached through Telegram, the daemon/message runtime, scheduled jobs, Studio-backed runtime activity, or MCP.
+
+The Telegram path lives in `engine/bot/handlers/chat.mjs`. The queued runtime path lives in `engine/runtime/message-runtime.mjs`. Both call the shared agent entry point in `engine/agent/index.mjs`.
+
+## 2. The model chooses tools
+
+`runAgentTurn()` builds a `ToolLoopAgent` with:
+
+- the active model from `AEGIS_AGENT_MODEL`
+- the system prompt from `engine/agent/system-prompt.mjs`
+- per-user message history and facts
+- the tool registry from `engine/agent/tools/index.mjs`
+- telemetry for every invocation and tool call
+
+Supported model routes are documented in [Models](/models).
+
+## 3. The tool registry constrains actions
+
+The registry exposes 34 tools. Read tools can answer directly. Write tools are marked with approval requirements and still enforce policy inside their execution body.
+
+Important examples:
+
+| Tool | Behavior |
+| --- | --- |
+| `getSwapQuote` | Fetches a live Zerion quote without executing |
+| `executeSwap` | Builds a trade proposal, runs policies, then calls the executor |
+| `depositToShield` | Starts the MagicBlock shield deposit path |
+| `commitMission` | Creates an autonomous envelope that remains policy-scoped |
+
+Destructive credential operations remain human-only CLI actions. They are not exposed as LLM tools.
+
+## 4. Approval is requested for value-moving tools
+
+Telegram renders inline Approve/Deny controls for pending write-tool calls. MCP hosts can add their own approval UI as another surface-level gate.
+
+Approval does not authorize bypassing policies. It only lets the requested write tool continue to its own execution code.
+
+## 5. Policies run before signing
+
+For swaps, `engine/agent/tools/swap.mjs` creates a `TradeProposal`, applies the default or mission policy set, and calls `runPolicies()` from `engine/policies/engine.mjs`.
+
+The policy engine fails closed:
+
+- empty policy config throws `MissingPolicyConfigError`
+- denied policies return structured denials
+- policy errors deny the proposal
+- `engine/execution/executor.mjs` refuses any proposal without `policyResult.approved === true`
+
+## 6. Execution routes through Zerion or MagicBlock
+
+Public swaps go through the forked Zerion CLI path:
+
+```text
+engine/agent/tools/swap.mjs:executeSwap
+  -> engine/execution/executor.mjs:executeTrade
+  -> cli/utils/trading/swap.js:getSwapQuote
+  -> cli/utils/trading/swap.js:executeSwap
+```
+
+Private shield operations go through:
+
+```text
+engine/execution/private-executor.mjs
+  -> engine/lib/magicblock/client.mjs
+```
+
+The private path currently has verified shield deposits. The withdraw cycle has a disclosed SDK blocker after `private: true` deposits; see [Track evidence](/track-evidence).
+
+## 7. The result is recorded
+
+Successful executions return a transaction hash and explorer URL when available. Failures are also structured, logged, and surfaced back to the operator so the agent cannot silently claim execution that did not happen.

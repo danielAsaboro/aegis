@@ -1,0 +1,93 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "almond",
+  "name": "AEGIS Docs",
+  "colors": {
+    "primary": "#15803D",
+    "light": "#22C55E",
+    "dark": "#15803D"
+  },
+  "navigation": {
+    "groups": [
+      {
+        "group": "Getting started",
+        "pages": [
+          "index",
+          "quickstart",
+          "development"
+        ]
+      },
+      {
+        "group": "How it works",
+        "pages": [
+          "how-aegis-works",
+          "architecture",
+          "policies",
+          "private-execution",
+          "studio",
+          "qvac"
+        ]
+      },
+      {
+        "group": "Reference",
+        "pages": [
+          "models",
+          "cli-reference",
+          "x402-endpoints",
+          "mcp-codex"
+        ]
+      },
+      {
+        "group": "Proof",
+        "pages": [
+          "track-evidence",
+          "frontier-checklist",
+          "what-we-built",
+          "changelog"
+        ]
+      }
+    ],
+    "global": {
+      "anchors": [
+        {
+          "anchor": "Website",
+          "href": "https://tryaegis.xyz",
+          "icon": "globe"
+        },
+        {
+          "anchor": "GitHub",
+          "href": "https://github.com/danielAsaboro/aegis",
+          "icon": "github"
+        }
+      ]
+    }
+  },
+  "navbar": {
+    "links": [
+      {
+        "label": "Demo playlist",
+        "href": "https://www.youtube.com/playlist?list=PLeERy8YL4mpRKIQyVis1cI1L9gk8j63Oi"
+      }
+    ],
+    "primary": {
+      "type": "button",
+      "label": "View repo",
+      "href": "https://github.com/danielAsaboro/aegis"
+    }
+  },
+  "contextual": {
+    "options": [
+      "copy",
+      "view",
+      "chatgpt",
+      "claude",
+      "cursor",
+      "vscode"
+    ]
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/danielAsaboro/aegis"
+    }
+  }
+}

@@ -28,6 +28,7 @@ import { collectPendingApprovals } from '../../runtime/conversation.mjs';
 import { botLog } from '../../core/logger.mjs';
 import env from '../../config.mjs';
 import { getPrisma } from '../../db/index.mjs';
+import { renderTelegramAgentHtml, renderTelegramAgentPlain, sendTelegramReply } from '../formatters.mjs';
 
 async function setVoicePref(chatId, patch) {
   const id = String(chatId);
@@ -185,6 +186,31 @@ function renderTypedError(err) {
   return `Error: ${err.message || String(err)}`;
 }
 
+function isTelegramParseError(err) {
+  const msg = String(err?.description || err?.message || '');
+  return /can't parse entities|parse entities|entity beginning|unsupported start tag/i.test(msg);
+}
+
+async function editTelegramAgentReply(ctx, messageId, text) {
+  try {
+    await ctx.telegram.editMessageText(
+      ctx.chat.id,
+      messageId,
+      undefined,
+      renderTelegramAgentHtml(text),
+      { parse_mode: 'HTML' },
+    );
+  } catch (err) {
+    if (!isTelegramParseError(err)) throw err;
+    await ctx.telegram.editMessageText(
+      ctx.chat.id,
+      messageId,
+      undefined,
+      renderTelegramAgentPlain(text),
+    );
+  }
+}
+
 export async function runUntilStableOrApproval({ ctx, userId, walletName, prompt, resumeMessages, thinkingMsg }) {
   let detach = () => {};
 
@@ -210,7 +236,7 @@ export async function runUntilStableOrApproval({ ctx, userId, walletName, prompt
     if (thinkingMsg) {
       try { await ctx.deleteMessage(thinkingMsg.message_id); } catch {}
     }
-    if (result.text) await ctx.reply(result.text);
+    if (result.text) await sendTelegramReply((text, extra) => ctx.reply(text, extra), result.text);
     return { done: true, result };
   }
 
@@ -232,7 +258,7 @@ export async function runUntilStableOrApproval({ ctx, userId, walletName, prompt
   if (thinkingMsg) {
     try { await ctx.deleteMessage(thinkingMsg.message_id); } catch {}
   }
-  if (result.text) await ctx.reply(result.text);
+  if (result.text) await sendTelegramReply((text, extra) => ctx.reply(text, extra), result.text);
   await sendApprovalPrompts(ctx, pendingId, pending);
 
   return { done: false, pendingId, pending };
@@ -398,9 +424,9 @@ export function registerChat(bot, config) {
         return;
       }
       if (thinkingMsg) {
-        try { await ctx.telegram.editMessageText(ctx.chat.id, thinkingMsg.message_id, undefined, friendly); } catch {}
+        try { await editTelegramAgentReply(ctx, thinkingMsg.message_id, friendly); } catch {}
       } else {
-        await ctx.reply(friendly);
+        await sendTelegramReply((text, extra) => ctx.reply(text, extra), friendly);
       }
     }
   });
@@ -457,7 +483,7 @@ export function registerChat(bot, config) {
       botLog.error({ err: err.message, code: err.code, pendingId }, 'Agent resume failed');
       const friendly = renderTypedError(err);
       if (friendly !== null) {
-        await ctx.reply(friendly);
+        await sendTelegramReply((text, extra) => ctx.reply(text, extra), friendly);
       }
     }
   });

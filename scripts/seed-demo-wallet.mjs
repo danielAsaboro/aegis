@@ -5,7 +5,7 @@
  * "do you have enough" level — re-running just adds more SOL.
  *
  * Usage:
- *   node --env-file=.env scripts/seed-demo-wallet.mjs [--amount=0.1]
+ *   node --env-file=.env.local scripts/seed-demo-wallet.mjs [--amount=0.1]
  */
 
 import { readFileSync } from 'node:fs';
@@ -26,7 +26,7 @@ const amount = (() => {
 
 const mainSecret = process.env.SOLANA_PRIVATE_KEY;
 if (!mainSecret) {
-  console.error('SOLANA_PRIVATE_KEY missing — run with --env-file=.env');
+  console.error('SOLANA_PRIVATE_KEY missing — run with --env-file=.env.local or --env-file=.env.devnet');
   process.exit(1);
 }
 
@@ -56,5 +56,5 @@ const sig = await sendAndConfirmTransaction(conn, tx, [main]);
 
 const afterDemo = await conn.getBalance(demo.publicKey);
 console.log(`signature: ${sig}`);
-console.log(`explorer:  https://solscan.io/tx/${sig}?cluster=devnet`);
+console.log(`explorer:  https://explorer.solana.com/tx/${sig}?cluster=devnet`);
 console.log(`demo balance now: ${(afterDemo / LAMPORTS_PER_SOL).toFixed(4)} SOL`);

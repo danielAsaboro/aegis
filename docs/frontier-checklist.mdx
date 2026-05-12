@@ -1,0 +1,99 @@
+---
+title: "Frontier checklist"
+description: "A harsh internal evaluator for the Zerion Frontier track."
+icon: "list-checks"
+---
+
+This is an internal submission gate for the Frontier track, not a marketing page. Score the project as if judges are skeptical, impatient, and comparing it against stronger teams.
+
+## Evaluation posture
+
+- Fail on missing proof, not missing code.
+- Fail on anything a judge cannot verify in under five minutes.
+- Fail on anything that makes the product look like a simulation, wrapper, or policy theater.
+- Treat "implemented but not evidenced" as a fail for headline requirements.
+
+## Hard gates
+
+### 1. Zerion compliance
+
+- Pass only if AEGIS is clearly a fork built on top of Zerion CLI.
+- Pass only if wallet control, signing, and swap execution still use the Zerion stack.
+- Fail if any headline swap flow uses a non-Zerion execution shortcut.
+- Fail if submission copy overstates Zerion usage relative to the actual code path.
+
+### 2. Real onchain transaction proof
+
+- Pass only if there is at least one real, judge-verifiable onchain transaction tied to the primary product flow.
+- Pass only if the receipt is public and mapped to a concrete user action.
+- Pass only if the flow is legible as user intent -> policy/approval -> Zerion quote -> signed execution -> explorer proof.
+- Fail if proof is only a local simulation, surfpool run, or video without explorer evidence.
+- Fail if the only public proof is from a side feature while the main advertised Zerion flow has no public receipt.
+- Fail if the wallet, funds, or agent token state blocks proof on submission day.
+
+### 3. Scoped policy proof
+
+- Pass only if at least one scoped policy is truly enforced before signing.
+- Pass only if a policy denial can be shown in product, not only in tests.
+- Pass only if LLM actions, automation, MCP calls, and direct tool calls all remain inside the same gate.
+- Fail if policy is advisory only.
+- Fail if there is any bypass, admin override, or hidden unsafe mode.
+
+### 4. Agent authenticity
+
+- Pass only if the product is a real autonomous onchain agent, not just a wallet UI with chat.
+- Pass only if natural-language input materially drives tool selection and execution flow.
+- Pass only if the agent coordinates a meaningful workflow such as quote -> approve -> execute, DCA, rebalance, or monitored reaction.
+- Fail if the product is mostly a command launcher with branding.
+- Fail if the "agent" can talk but cannot move real value through the advertised path.
+
+### 5. Demo credibility
+
+- Pass only if a judge can reproduce the story quickly from docs and repo state.
+- Pass only if the demo leads with the track requirement first: real Zerion-backed action and scoped policy enforcement.
+- Pass only if blocked paths are disclosed plainly without undermining the headline proof.
+- Fail if the demo script claims end to end while omitting the real Zerion execution path.
+- Fail if the demo requires trust, narration, or hidden context to seem complete.
+
+## Competitive differentiators
+
+### 6. Real-world applicability
+
+- Strong only if the use case solves a serious user problem such as DCA, rebalance, group approval, or signal-driven execution.
+- Weak if the automation feels hackathon-random or AI-gimmicky.
+
+### 7. Product sharpness
+
+- Strong only if one primary workflow can carry the whole submission.
+- Weak if the product feels like a bundle of features without a sharp center.
+
+### 8. Technical rigor
+
+- Strong only if repo structure, docs, and runtime claims line up.
+- Weak if README, proof docs, and actual behavior disagree.
+
+### 9. Judge experience
+
+- Strong only if there is a single "open this first" path, obvious explorer links, and explicit funding/env requirements.
+- Weak if judges must hunt across files to understand whether the main requirement is actually met.
+
+## Required evidence package
+
+- One real Zerion-backed transaction proof with explorer link.
+- One policy denial proof showing a scoped rule blocking a requested action.
+- One short explanation of how the fork preserves Zerion as the wallet and execution layer.
+- One crisp primary use case.
+- One short reproduction path for judges.
+- One plain disclosure section for non-headline limitations.
+
+## Current assessment
+
+Based on the checked-in proof today:
+
+- Pass: forked Zerion CLI foundation.
+- Pass: scoped policy design and no-bypass architecture.
+- Pass: public Zerion-backed mainnet transaction receipt for the primary Frontier headline.
+- Pass: MagicBlock deposit proof for the companion story.
+- Fail: judge-ready demo credibility if the story leans on `scripts/demo.mjs` as the main end-to-end artifact instead of the real mainnet swap receipt.
+
+Current verdict: **submission-safe on the Frontier headline proof, provided judges are pointed first to the real mainnet swap receipt rather than the local demo script.**

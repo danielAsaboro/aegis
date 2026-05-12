@@ -114,6 +114,41 @@ export function getAvailableModels() {
   return [...SUBSCRIPTION_MODELS];
 }
 
+export function hasExplicitExecutionIntent(prompt) {
+  if (typeof prompt !== 'string') return false;
+  const text = prompt.trim().toLowerCase();
+  if (!text) return false;
+  const action = /\b(execute|swap|buy|sell|trade|bridge|rebalance|convert)\b/.test(text);
+  const urgency = /\b(now|right now|immediately|execute now|go ahead|proceed|do it)\b/.test(text);
+  const hasAmount = /\b\d+(\.\d+)?\b/.test(text);
+  const routedPair = /\bto\b/.test(text) || /->|→/.test(text);
+  return action && (urgency || (hasAmount && routedPair));
+}
+
+function buildIntentDirective({ prompt, turnProfile }) {
+  if (typeof prompt !== 'string' || !prompt.trim()) return null;
+  if (hasExplicitExecutionIntent(prompt)) {
+    return {
+      role: 'system',
+      content:
+        'Execution intent is already explicit in the user message. If the user supplied a concrete trade, ' +
+        'get the live quote and continue to execution in the same turn when the policy/approval path allows it. ' +
+        'Do not stop after quoting just to ask for confirmation unless required inputs are missing, a policy denies, ' +
+        'or the tool layer emits an approval request.',
+    };
+  }
+  if (turnProfile === 'scheduled') {
+    return {
+      role: 'system',
+      content:
+        'This is a scheduled/background turn. Keep the response short and operator-facing. ' +
+        'If the prompt explicitly directs an onchain action and the policy/approval path allows it, you may execute it. ' +
+        'If there is nothing material to report, reply with exactly "NO_UPDATE".',
+    };
+  }
+  return null;
+}
+
 async function loadFactPreload(userId) {
   if (!userId) return null;
   try {
@@ -141,6 +176,8 @@ async function buildInputMessages({ userId, prompt, messages, turnProfile = 'int
   const history = userId ? await getHistory(userId) : [];
   const out = history.map(({ role, content }) => ({ role, content }));
   if (prompt) {
+    const intentMsg = buildIntentDirective({ prompt, turnProfile });
+    if (intentMsg) out.push(intentMsg);
     const factMsg = turnProfile === 'interactive' || turnProfile === 'scheduled'
       ? await loadFactPreload(userId)
       : null;
@@ -286,7 +323,7 @@ export async function runAgentTurn({
 }
 
 /**
- * Streaming variant — used by the CLI REPL.
+ * Streaming variant — retained for programmatic / adapter-driven surfaces.
  */
 export async function streamAgentTurn({
   prompt,

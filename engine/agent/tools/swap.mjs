@@ -8,7 +8,7 @@
  *   4. If policies pass, attaches the policyResult and calls executeTrade(),
  *      which fails closed if anything later strips the gate.
  *
- * `needsApproval: true` means the chat surface (Telegram or CLI) must
+ * `needsApproval: true` means the operator-facing surface must
  * obtain explicit human approval before the SDK calls execute(). The
  * policy gate above runs INSIDE execute(), so a misconfigured surface that
  * bypasses approval still cannot bypass policy.
@@ -72,7 +72,7 @@ export const getSwapQuote = tool({
 });
 
 export const executeSwap = tool({
-  description: 'Execute a real onchain swap through Zerion. Goes through the AEGIS policy engine (limits, cooldown, slippage). Returns the txHash + Solscan/Etherscan URL on success, or a structured denial when a policy refuses.',
+  description: 'Execute a real onchain swap through Zerion. Goes through the AEGIS policy engine (limits, cooldown, slippage). Returns the txHash + Solana Explorer/Etherscan URL on success, or a structured denial when a policy refuses.',
   inputSchema: z.object({
     fromToken: z.string(),
     toToken: z.string(),

@@ -1,0 +1,81 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="760" viewBox="0 0 1120 760" role="img" aria-labelledby="title desc">
+  <title id="title">AEGIS architecture</title>
+  <desc id="desc">AEGIS routes user intent through a model, tool registry, approval and policy gates, then the forked Zerion CLI or MagicBlock private execution path.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#166534"/>
+    </marker>
+    <style>
+      .bg { fill: #f8fafc; }
+      .box { fill: #ffffff; stroke: #166534; stroke-width: 2; rx: 12; }
+      .soft { fill: #ecfdf5; stroke: #16a34a; stroke-width: 2; rx: 12; }
+      .surface { fill: #f1f5f9; stroke: #64748b; stroke-width: 1.5; rx: 10; }
+      .title { font: 700 20px system-ui, -apple-system, Segoe UI, sans-serif; fill: #052e16; }
+      .label { font: 600 15px system-ui, -apple-system, Segoe UI, sans-serif; fill: #052e16; }
+      .small { font: 13px system-ui, -apple-system, Segoe UI, sans-serif; fill: #334155; }
+      .tiny { font: 12px system-ui, -apple-system, Segoe UI, sans-serif; fill: #475569; }
+      .line { stroke: #166534; stroke-width: 2.5; fill: none; marker-end: url(#arrow); }
+      .dash { stroke: #64748b; stroke-width: 2; stroke-dasharray: 5 5; fill: none; marker-end: url(#arrow); }
+    </style>
+  </defs>
+  <rect class="bg" x="0" y="0" width="1120" height="760"/>
+  <text class="title" x="40" y="45">AEGIS execution architecture</text>
+  <text class="small" x="40" y="70">Forked Zerion CLI stays the wallet and swap execution substrate. AEGIS adds the agent, policies, approvals, private execution, and interfaces.</text>
+
+  <rect class="surface" x="40" y="105" width="1040" height="95"/>
+  <text class="label" x="62" y="135">Interfaces</text>
+  <text class="small" x="62" y="162">Telegram chat and approvals</text>
+  <text class="small" x="305" y="162">Scheduler and daemon runtime</text>
+  <text class="small" x="575" y="162">Studio observability UI</text>
+  <text class="small" x="810" y="162">MCP server for external hosts</text>
+
+  <rect class="box" x="115" y="245" width="225" height="96"/>
+  <text class="label" x="140" y="275">Model provider</text>
+  <text class="small" x="140" y="302">codex/default</text>
+  <text class="small" x="140" y="324">qvac/local via sidecar</text>
+
+  <rect class="box" x="445" y="245" width="225" height="96"/>
+  <text class="label" x="470" y="275">Tool registry</text>
+  <text class="small" x="470" y="302">34 AEGIS tools</text>
+  <text class="small" x="470" y="324">Read tools + gated writes</text>
+
+  <rect class="soft" x="780" y="245" width="225" height="96"/>
+  <text class="label" x="805" y="275">Approval gate</text>
+  <text class="small" x="805" y="302">Human confirmation for</text>
+  <text class="small" x="805" y="324">write tools in surfaces</text>
+
+  <rect class="soft" x="280" y="405" width="245" height="110"/>
+  <text class="label" x="305" y="436">Policy engine</text>
+  <text class="small" x="305" y="463">spend-limit, cooldown</text>
+  <text class="small" x="305" y="485">time-window, price-guard</text>
+  <text class="small" x="305" y="507">consensus, privacy</text>
+
+  <rect class="box" x="620" y="405" width="245" height="110"/>
+  <text class="label" x="645" y="436">Execution layer</text>
+  <text class="small" x="645" y="463">Refuses missing policyResult</text>
+  <text class="small" x="645" y="485">Chooses public or private route</text>
+  <text class="small" x="645" y="507">Logs receipts and failures</text>
+
+  <rect class="box" x="155" y="580" width="275" height="95"/>
+  <text class="label" x="180" y="611">Forked Zerion CLI</text>
+  <text class="small" x="180" y="638">Wallet keystore, Zerion API quote</text>
+  <text class="small" x="180" y="660">Swap signing and broadcast path</text>
+
+  <rect class="box" x="690" y="580" width="275" height="95"/>
+  <text class="label" x="715" y="611">MagicBlock private execution</text>
+  <text class="small" x="715" y="638">Shield deposit and delegateSpl</text>
+  <text class="small" x="715" y="660">Private route selected by policy</text>
+
+  <path class="dash" d="M220 200 L220 245"/>
+  <path class="dash" d="M525 200 L525 245"/>
+  <path class="dash" d="M850 200 L850 245"/>
+  <path class="line" d="M340 293 L445 293"/>
+  <path class="line" d="M670 293 L780 293"/>
+  <path class="line" d="M892 341 C892 382 540 356 472 405"/>
+  <path class="line" d="M525 460 L620 460"/>
+  <path class="line" d="M700 515 C625 565 420 550 330 580"/>
+  <path class="line" d="M785 515 C835 545 845 555 845 580"/>
+  <path class="line" d="M292 675 C292 720 828 720 828 675"/>
+
+  <text class="tiny" x="440" y="730">Every value-moving route must pass approval and policy checks before a signed transaction or receipt exists.</text>
+</svg>

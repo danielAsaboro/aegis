@@ -21,6 +21,8 @@ import { startSocketServer, stopSocketServer, broadcastEvent } from './ipc/socke
 import { sweepExpiredMissions, listMissions } from './missions/index.mjs';
 import { notify } from './notify/index.mjs';
 import { createMessageRuntime } from './runtime/message-runtime.mjs';
+import { listActiveScheduledJobs } from './runtime/scheduled-jobs.mjs';
+import { listChannels } from './notify/index.mjs';
 
 const SWEEP_INTERVAL_MS = 60_000;
 
@@ -125,6 +127,10 @@ export async function runDaemonSupervisor() {
       model: env.AEGIS_AGENT_MODEL,
       wallet: walletAddress,
       startedAt: new Date().toISOString(),
+      statusFn: async () => ({
+        scheduledJobs: await listActiveScheduledJobs(),
+        channels: listChannels(),
+      }),
     },
     onMessage: handleMessage,
     onApproval: ({ approvalId, approved }) => {

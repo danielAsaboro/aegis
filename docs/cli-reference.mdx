@@ -1,0 +1,48 @@
+---
+title: "Runtime Reference"
+description: "Reference for the long-running AEGIS runtime and the extended Zerion CLI surface."
+icon: "square-terminal"
+---
+
+AEGIS ships two main command surfaces:
+
+- `node engine/index.mjs ...` for the AEGIS runtime
+- `zerion ...` for the forked Zerion CLI
+
+## Runtime commands
+
+| Command | Purpose |
+| --- | --- |
+| `node engine/index.mjs` | Run the Telegram bot, monitors, and strategies |
+| `node engine/index.mjs --studio` | Start the local Studio UI |
+| `node --env-file=.env.local engine/index.mjs mcp` | Expose the AEGIS MCP server |
+| `pnpm judge-trace` | Print a proof-oriented policy decision trace |
+
+## Zerion CLI areas extended by AEGIS
+
+| Area | Examples |
+| --- | --- |
+| Trading | `zerion swap`, `zerion bridge`, `zerion send` |
+| Agent tokens | `zerion agent create-token`, `list-tokens`, `revoke-token` |
+| Agent policies | `zerion agent create-policy`, `list-policies`, `show-policy` |
+| Studio | `zerion studio` |
+
+## Example policy creation
+
+```bash
+zerion agent create-policy \
+  --name safe-base \
+  --chains base \
+  --expires 24h \
+  --deny-transfers
+```
+
+## Example token creation
+
+```bash
+zerion agent create-token --name dca-bot --wallet trading-bot
+```
+
+## Output model
+
+The CLI defaults to JSON for agent compatibility. Use `--pretty` for human-readable output and `--quiet` for minimal output when appropriate.

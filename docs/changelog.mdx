@@ -1,0 +1,48 @@
+---
+title: "Changelog"
+description: "Concise docs-facing changelog for AEGIS additions and upstream Zerion CLI changes."
+icon: "list-tree"
+---
+
+This page summarizes the parts that matter for judges and developers. The raw release history remains in [CHANGELOG.md](https://github.com/danielAsaboro/aegis/blob/main/CHANGELOG.md).
+
+## AEGIS Frontier additions
+
+### `aegis-frontier-1.0.0` - Frontier submission
+
+- Added the LLM agent loop around the forked Zerion CLI through `engine/agent/index.mjs`.
+- Added the 34-tool registry in `engine/agent/tools/index.mjs`.
+- Added fail-closed policy enforcement through `engine/policies/engine.mjs`.
+- Added executor-level no-bypass checks in `engine/execution/executor.mjs`.
+- Added subscription/local model routes: `codex/default` and `qvac/local`.
+- Added MagicBlock private execution and shield tools.
+- Added QVAC local LLM, embeddings, RAG, STT, TTS plumbing, and Bare sidecar.
+- Added Studio, missions, scheduler/runtime work, and local surfpool mode.
+- Captured a public mainnet Zerion-routed SOL -> USDC swap receipt.
+
+## Upstream Zerion CLI changes
+
+### `1.1.0` - 2026-05-08
+
+- Added Monad skills and examples.
+- Added Zerion partner skill creator.
+- Expanded CLI bridge provider selection, fee attribution, and chain list.
+- Added SendAI ideas skills.
+- Fixed `zerion init` skills step to be interactive by default.
+
+### `1.0.1` - 2026-05-05
+
+- Added MoonPay partner skills.
+- Migrated to `/swap/quotes/`.
+- Added Solana swap, bridge, and send.
+- Added retry handling for 429 errors.
+- Unified CLI and agent skills under the `cli/` layout.
+- Improved chain search and live chain fetching.
+
+### `1.0.0` - 2026-04-27
+
+- Added MPP pay-per-call and Solana x402 support.
+- Added wallet `sign-message` and `sign-typed-data`.
+- Added `zerion init` onboarding.
+- Added agent-token setup flow.
+- Preserved trading commands on the Zerion API key path.

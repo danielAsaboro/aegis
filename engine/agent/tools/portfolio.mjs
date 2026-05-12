@@ -24,10 +24,10 @@ function activeWalletFromContext(ctx) {
 }
 
 export const getPortfolio = tool({
-  description: 'Fetch the active wallet\'s aggregate portfolio (total value, positions count, PnL summary) from Zerion. Returns USD-denominated.',
+  description: 'Fetch the active wallet\'s aggregate portfolio (total value, positions count, PnL summary) from Zerion. Returns USD-denominated. Do not ask the user for walletName first: omit walletName to use the active wallet from context. If chain is omitted, AEGIS uses the configured default chain for wallet resolution.',
   inputSchema: z.object({
-    walletName: z.string().optional().describe('OWS wallet name. Defaults to the active wallet.'),
-    chain: z.string().optional().describe('Optional chain to scope by (solana, ethereum, base, ...). Defaults to all chains.'),
+    walletName: z.string().optional().describe('Optional OWS wallet name. Leave unset unless the user explicitly names another wallet; unset uses the active wallet.'),
+    chain: z.string().optional().describe('Optional chain to scope by (solana, ethereum, base, ...). Leave unset unless the user explicitly names a chain.'),
   }),
   execute: async ({ walletName, chain }, ctx) => {
     const name = walletName || activeWalletFromContext(ctx);
@@ -39,10 +39,10 @@ export const getPortfolio = tool({
 });
 
 export const getPositions = tool({
-  description: 'List the active wallet\'s token positions, sorted by USD value descending.',
+  description: 'List the active wallet\'s token positions, sorted by USD value descending. Use this before DCA, rebalance, status, or "what tokens do I hold" answers. Do not ask the user to list tokens, balances, wallet name, or chain first: omit walletName and chain to use AEGIS defaults.',
   inputSchema: z.object({
-    walletName: z.string().optional(),
-    chain: z.string().optional().describe('Restrict to one chain (solana, ethereum, ...).'),
+    walletName: z.string().optional().describe('Optional OWS wallet name. Leave unset unless the user explicitly names another wallet; unset uses the active wallet.'),
+    chain: z.string().optional().describe('Optional chain restriction (solana, ethereum, ...). Leave unset unless the user explicitly names a chain.'),
     limit: z.number().int().positive().max(100).optional().describe('Cap the number of positions returned. Default 25.'),
   }),
   execute: async ({ walletName, chain, limit = 25 }, ctx) => {
@@ -63,7 +63,7 @@ export const getPositions = tool({
 });
 
 export const getPnl = tool({
-  description: 'Get realized + unrealized PnL for the active wallet, plus net invested.',
+  description: 'Get realized + unrealized PnL for the active wallet, plus net invested. Omit walletName to use the active wallet.',
   inputSchema: z.object({
     walletName: z.string().optional(),
   }),
@@ -77,7 +77,7 @@ export const getPnl = tool({
 });
 
 export const getHistory = tool({
-  description: 'Return recent onchain transactions for the active wallet from Zerion.',
+  description: 'Return recent onchain transactions for the active wallet from Zerion. Omit walletName and chain unless the user explicitly names them.',
   inputSchema: z.object({
     walletName: z.string().optional(),
     chain: z.string().optional(),

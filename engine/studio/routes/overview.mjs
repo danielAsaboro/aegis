@@ -7,6 +7,7 @@ import bus from '../../core/event-bus.mjs';
 import { getPrisma } from '../../db/index.mjs';
 import { getAllStrategies } from '../../strategies/index.mjs';
 import { getRecentSignals } from '../ws/signals.mjs';
+import { readNotifications } from './notifications.mjs';
 
 const BOOT_AT = Date.now();
 
@@ -17,6 +18,7 @@ export async function registerOverviewRoutes(app) {
       activeDcaPlans,
       activeRebalanceTargets,
       activePriceAlerts,
+      activeScheduledJobs,
       tradesToday,
       invocationsToday,
       latestTrade,
@@ -24,10 +26,12 @@ export async function registerOverviewRoutes(app) {
       prisma.dCAPlan.count({ where: { status: 'active' } }),
       prisma.rebalanceTarget.count({ where: { status: 'active' } }),
       prisma.priceAlert.count({ where: { status: 'active' } }),
+      prisma.scheduledJob.count({ where: { status: 'active' } }),
       prisma.tradeExecution.count({ where: { createdAt: { gte: startOfToday() } } }),
       prisma.agentInvocation.count({ where: { startedAt: { gte: startOfToday() } } }),
       prisma.tradeExecution.findFirst({ orderBy: { createdAt: 'desc' } }),
     ]);
+    const recentNotifications = readNotifications({ take: 10 });
 
     return {
       engine: {
@@ -47,10 +51,12 @@ export async function registerOverviewRoutes(app) {
         activeDcaPlans,
         activeRebalanceTargets,
         activePriceAlerts,
+        activeScheduledJobs,
         tradesToday,
         invocationsToday,
       },
       latestTrade,
+      recentNotifications,
     };
   });
 

@@ -1,6 +1,6 @@
 /**
  * AI-SDK turn telemetry — records AgentInvocation + AgentToolCall rows
- * AND emits live tool-execution events for chat surfaces to display
+ * AND emits live tool-execution events for operator surfaces to display
  * progress (`→ getSwapQuote`, `✓ 482ms`, ...).
  *
  * The callbacks are passed to agent.generate({ ... }) / agent.stream({ ... })

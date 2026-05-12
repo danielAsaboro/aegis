@@ -1,0 +1,95 @@
+---
+title: "Track evidence"
+description: "Proof map for the Frontier, MagicBlock, and QVAC submission."
+icon: "badge-check"
+---
+
+This page condenses the repo's submission evidence into a judge-first order. The full raw record remains in [TRACKS.md](https://github.com/danielAsaboro/aegis/blob/main/TRACKS.md).
+
+For an internal go/no-go review, use the stricter [Frontier checklist](/frontier-checklist).
+
+## 1. Mainnet Zerion swap receipt
+
+The headline Frontier requirement is a real onchain transaction through the forked Zerion CLI and Zerion API path.
+
+| Proof | Value |
+| --- | --- |
+| Mainnet swap receipt | [5aK9pZ9...XaZ16Ko6](https://explorer.solana.com/tx/5aK9pZ9KCBhKawgcMdFGmS5W8rQbRoQ1utiUPSA7tHKF2f1d6zxq1gNRjWpqwMEdn4oA2JBJ5yGa5bqyXaZ16Ko6) |
+| Funding tx for proof wallet | [454iRK1...rzcNgKzB](https://explorer.solana.com/tx/454iRK1spvQyGb44bzNLoSBYHEYkWjb21GJJnMEmHq1SuBnXJ8pCwV2oQj1FBLuW3AnGEeUpi69CoMXrjzcNgKzB) |
+| Demo playlist | [YouTube playlist](https://www.youtube.com/playlist?list=PLeERy8YL4mpRKIQyVis1cI1L9gk8j63Oi) |
+
+The live proof command recorded in `TRACKS.md` is:
+
+```bash
+node --env-file=.env.local cli/zerion.js swap solana 0.001 SOL USDC --wallet proof-mainnet --json
+```
+
+The code path is:
+
+```text
+engine/agent/tools/swap.mjs:executeSwap
+  -> engine/execution/executor.mjs:executeTrade
+  -> cli/utils/trading/swap.js:executeSwap
+  -> signAndBroadcastSolana
+```
+
+## 2. Policy and no-bypass proof
+
+AEGIS is not an unconstrained wallet agent. Every value-moving path is scoped by policies and write-tool approval.
+
+| Proof | Evidence |
+| --- | --- |
+| Fail-closed empty config | `engine/policies/engine.mjs` throws `MissingPolicyConfigError` when no policy is active. |
+| Executor hard stop | `engine/execution/executor.mjs` throws when a trade lacks an approved `policyResult`. |
+| Swap tool gate | `engine/agent/tools/swap.mjs` builds a proposal, runs policies, and only then calls `executeTrade()`. |
+| Human approval | Telegram approval prompts live in `engine/bot/handlers/chat.mjs`; write tools declare approval requirements. |
+| Unit coverage | `tests/unit/policies/no-bypass.test.mjs`, `tests/unit/agent/no-bypass.test.mjs`, `tests/unit/agent/tool-contract.test.mjs`. |
+
+Quick local proof:
+
+```bash
+pnpm judge-trace
+pnpm test:unit
+```
+
+## 3. MagicBlock deposit proof
+
+MagicBlock is integrated as a user-facing private execution path through shield tools and the privacy policy. The verified proof today is the deposit half of the cycle.
+
+| Proof | Value |
+| --- | --- |
+| Shield deposit 1 | [5kdQ6DC...NtASFR](https://explorer.solana.com/tx/5kdQ6DC93RJ12v4ns4uHvQajXmRVhuEDqzuW9Eus3E3fMb2G2mt9GmawriUhubD6mf7GpVDnvv7yBqaUjsNtASFR?cluster=devnet) |
+| Shield deposit 2 | [3JkQrWx...dswAD3](https://explorer.solana.com/tx/3JkQrWxZYhceMJEPLfv7JHyRFJ9KYUB3yewA7BUjSJhvHTAYuJMTSf3g5bdCn3VKHeqJo5SXXDH5KqAdewdswAD3?cluster=devnet) |
+| Code | `engine/execution/private-executor.mjs`, `engine/lib/magicblock/client.mjs`, `engine/agent/tools/shield.mjs` |
+
+The deposit path wraps native SOL to WSOL when needed, creates the token account idempotently, and delegates through `delegateSpl({ private: true })`.
+
+## 4. QVAC integration proof
+
+QVAC is wired into model, memory, and voice paths. It is not just a wrapper page.
+
+| Capability | Evidence |
+| --- | --- |
+| Local LLM | `qvac/local` in `engine/qvac/ai-sdk-provider/` and model routing in `engine/agent/resolve-model.mjs`. |
+| Bare sidecar | `engine/qvac/sidecar/` bridges Node.js to Bare-only QVAC packages. |
+| Semantic memory | `engine/qvac/embeddings.mjs`, `engine/qvac/indexer.mjs`, `engine/agent/tools/memory-search.mjs`. |
+| Voice | `engine/qvac/transcription.mjs`, `engine/qvac/tts.mjs`, `engine/bot/handlers/voice.mjs`. |
+| Hurdle log | [qvac-hurdles.md](https://github.com/danielAsaboro/aegis/blob/main/qvac-hurdles.md) records 27 concrete integration hurdles and fixes. |
+
+## Hard requirements status
+
+| Requirement | Status |
+| --- | --- |
+| Built on the forked Zerion CLI | Complete |
+| Real onchain execution path | Complete, with public mainnet Zerion swap receipt |
+| Scoped policy control | Complete |
+| No bypass path for protected actions | Complete |
+| MagicBlock user-facing integration | Complete for deposit path |
+| Demo or live demo | Demo playlist linked above |
+
+## Disclosed limitations
+
+- MagicBlock withdraw after a `private: true` deposit currently fails with `DelegationRecordInvalidAccountOwner` in the SDK flow described in `TRACKS.md`.
+- MagicBlock private execution is verified for deposit and delegation, not for the full private transfer plus withdraw cycle.
+- Local QVAC model performance depends on the installed model and CPU/GPU configuration. AEGIS extends the Telegram handler timeout for `qvac/*` models instead of pretending local CPU inference is instant.
+- API-key billed LLM routes such as `openai/*` and `anthropic/*` are intentionally unsupported.

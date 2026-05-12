@@ -28,11 +28,11 @@ function userIdFromCtx(ctx) {
 }
 
 export const rememberFact = tool({
-  description: 'Persist a small piece of user-specific knowledge for later turns. Use for durable preferences (e.g. "prefers USDC for stable holdings"), recurring sizes, watchlists. Upserts on (userId, key).',
+  description: 'Persist a small durable memory for later turns. Use for user preferences, recurring sizes, watchlists, strategy intent, open issues, fixed bugs, proof constraints, and project lessons. Upserts on (userId, key). Never store private keys, seed phrases, API keys, passphrases, OTPs, or raw secrets.',
   inputSchema: z.object({
-    key: z.string().min(1).describe('Stable identifier for the fact (e.g. "stable_preference", "default_dca_size").'),
-    value: z.string().min(1).describe('The fact body in natural language or short JSON.'),
-    category: z.string().optional().describe('Optional category — "preference", "watchlist", "size", "alert", etc.'),
+    key: z.string().min(1).describe('Stable identifier for the fact (e.g. "stable_preference", "default_dca_size", "issue_magicblock_withdraw"). Prefer updating existing keys over creating duplicates.'),
+    value: z.string().min(1).describe('The fact body in concise natural language or short JSON. Redact secrets and store only the operational lesson.'),
+    category: z.string().optional().describe('Optional category — "preference", "watchlist", "size", "alert", "issue", "lesson", "plan", "proof", "runtime", etc.'),
   }),
   execute: async ({ key, value, category }, ctx) => {
     const userId = userIdFromCtx(ctx);
@@ -52,7 +52,7 @@ export const rememberFact = tool({
 });
 
 export const recallFacts = tool({
-  description: 'Retrieve previously remembered facts for this user. With no query, returns the most-recent facts. Capped at 50 results.',
+  description: 'Retrieve previously remembered facts for this user. Use exact key/category recall for "our plan", "that issue", preferences, notes, and remembered lessons. With no query, returns the most-recent facts. Capped at 50 results.',
   inputSchema: z.object({
     query: z.string().optional().describe('Substring filter against key OR value.'),
     category: z.string().optional(),
@@ -84,7 +84,7 @@ export const recallFacts = tool({
 });
 
 export const forgetFact = tool({
-  description: 'Delete a previously remembered fact by key.',
+  description: 'Delete a previously remembered fact by key. Use only when the user explicitly asks to forget something, or when replacing a stale fact with a safer canonical key.',
   inputSchema: z.object({
     key: z.string().min(1),
   }),
@@ -96,7 +96,7 @@ export const forgetFact = tool({
 });
 
 export const listFacts = tool({
-  description: 'List all remembered facts for this user. Optionally filter by category. Capped at 50.',
+  description: 'List all remembered facts for this user. Use category filters for notes/plans/issues/lessons/proofs/preferences. Capped at 50.',
   inputSchema: z.object({
     category: z.string().optional(),
   }),

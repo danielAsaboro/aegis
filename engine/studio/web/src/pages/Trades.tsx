@@ -27,7 +27,7 @@ const EXPLORERS: Record<string, (tx: string) => string> = {
   arbitrum: (tx) => `https://arbiscan.io/tx/${tx}`,
   optimism: (tx) => `https://optimistic.etherscan.io/tx/${tx}`,
   polygon: (tx) => `https://polygonscan.com/tx/${tx}`,
-  solana: (tx) => `https://solscan.io/tx/${tx}`,
+  solana: (tx) => `https://explorer.solana.com/tx/${tx}`,
 };
 
 function explorerUrl(chain: string, tx: string) {

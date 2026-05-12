@@ -1,0 +1,43 @@
+---
+title: "What we built"
+description: "A judge-readable build log of the AEGIS Frontier additions on top of the Zerion CLI fork."
+icon: "hammer"
+---
+
+This page turns the raw project history into a milestone map. For full release detail, read the raw [CHANGELOG.md](https://github.com/danielAsaboro/aegis/blob/main/CHANGELOG.md), [TRACKS.md](https://github.com/danielAsaboro/aegis/blob/main/TRACKS.md), and [qvac-hurdles.md](https://github.com/danielAsaboro/aegis/blob/main/qvac-hurdles.md).
+
+## Build milestones
+
+| Milestone | What changed | Evidence |
+| --- | --- | --- |
+| Fork base | AEGIS keeps the upstream Zerion CLI wallet, swap, bridge, portfolio, policy, and agent-token surfaces. | `cli/zerion.js`, `cli/utils/`, `cli/commands/` |
+| LLM agent loop | Added `ToolLoopAgent` orchestration with model selection, memory, budget checks, telemetry, and skills. | `engine/agent/index.mjs` |
+| 34-tool registry | Wrapped portfolio, market, swap, DCA, policy, shield, wallet, memory, RAG, and mission capabilities as agent tools. | `engine/agent/tools/index.mjs` |
+| Fail-closed policies | Added spend-limit, cooldown, time-window, price-guard, consensus, and privacy enforcement before execution. | `engine/policies/engine.mjs`, `cli/policies/` |
+| No-bypass executor | The last-mile executor refuses proposals without a passing `policyResult`. | `engine/execution/executor.mjs` |
+| Telegram operator flow | Added natural-language chat, live tool progress, approval prompts, model switching, autonomy controls, and voice preferences. | `engine/bot/handlers/chat.mjs` |
+| MagicBlock shield path | Added private execution support for shield deposits, native SOL wrapping, and `delegateSpl({ private: true })`. | `engine/execution/private-executor.mjs`, `engine/lib/magicblock/client.mjs` |
+| QVAC sidecar | Bridged Node.js AEGIS to Bare-only QVAC native packages with a JSON-RPC sidecar. | `engine/qvac/sidecar/` |
+| QVAC provider | Added `qvac/local` as an AI SDK-compatible local model provider. | `engine/qvac/ai-sdk-provider/` |
+| QVAC RAG and voice | Added local embeddings, semantic memory, local STT, and TTS plumbing. | `engine/qvac/`, `engine/agent/tools/memory-search.mjs` |
+| Studio | Added a localhost-bound observability UI for runtime state, strategies, trades, logs, and agent runs. | `engine/studio/` |
+| Missions | Added a scoped autonomous envelope for longer-running goals. | `engine/agent/tools/missions.mjs`, `engine/missions/` |
+| Local surfpool mode | Added isolated local mode that keeps Zerion quotes live while broadcasting Solana locally. | `scripts/local-mode.mjs` |
+| Mainnet proof | Captured a public Zerion-routed mainnet SOL -> USDC swap receipt. | [Track evidence](/track-evidence) |
+
+## What stayed Zerion
+
+AEGIS did not replace Zerion as the execution backend. Public swaps still use the forked Zerion CLI and Zerion API path for quotes, signing, and broadcast. AEGIS adds the agent layer, guardrails, automation, private route, and interfaces around that base.
+
+## What became safer
+
+The policy boundary is enforced in two places:
+
+- write tools build proposals and run `runPolicies()`
+- the executor refuses any proposal that lacks an approved `policyResult`
+
+That means approval UI is an additional control, not the only control.
+
+## What is disclosed as incomplete
+
+MagicBlock shield deposits are verified. The private transfer plus withdraw cycle is blocked by a documented SDK issue after `private: true` deposits. The exact error and reproduction notes are in [Track evidence](/track-evidence) and `TRACKS.md`.

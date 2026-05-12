@@ -68,7 +68,7 @@ export const depositToShield = tool({
     return {
       success: true,
       signature,
-      explorerUrl: `https://solscan.io/tx/${signature}`,
+      explorerUrl: `https://explorer.solana.com/tx/${signature}`,
       token,
       amount,
       newShieldedBalance: typeof balance === 'bigint' ? balance.toString() : balance,
@@ -98,7 +98,7 @@ export const withdrawFromShield = tool({
     return {
       success: true,
       signature,
-      explorerUrl: `https://solscan.io/tx/${signature}`,
+      explorerUrl: `https://explorer.solana.com/tx/${signature}`,
       token,
       amount,
       newShieldedBalance: typeof balance === 'bigint' ? balance.toString() : balance,

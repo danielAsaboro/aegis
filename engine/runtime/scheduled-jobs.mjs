@@ -58,10 +58,12 @@ export async function createScheduledJob({
   return rowToJob(row);
 }
 
-export async function listScheduledJobs({ status, kind } = {}) {
+export async function listScheduledJobs({ status, kind, userId, chatId } = {}) {
   const where = {};
   if (status) where.status = status;
   if (kind) where.kind = kind;
+  if (userId != null) where.userId = String(userId);
+  if (chatId != null) where.chatId = String(chatId);
   const rows = await getPrisma().scheduledJob.findMany({
     where,
     orderBy: [{ createdAt: 'asc' }],
@@ -69,12 +71,15 @@ export async function listScheduledJobs({ status, kind } = {}) {
   return rows.map(rowToJob);
 }
 
-export async function listActiveScheduledJobs() {
-  return listScheduledJobs({ status: 'active' });
+export async function listActiveScheduledJobs(filters = {}) {
+  return listScheduledJobs({ ...filters, status: 'active' });
 }
 
 export async function updateScheduledJob(jobId, updates = {}) {
   const data = {};
+  if (updates.title !== undefined) data.title = updates.title;
+  if (updates.scheduleKind !== undefined) data.scheduleKind = updates.scheduleKind;
+  if (updates.scheduleValue !== undefined) data.scheduleValue = String(updates.scheduleValue);
   if (updates.status !== undefined) data.status = updates.status;
   if (updates.prompt !== undefined) data.prompt = updates.prompt;
   if (updates.payload !== undefined) data.payloadJson = updates.payload == null ? null : JSON.stringify(updates.payload);

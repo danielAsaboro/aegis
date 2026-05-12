@@ -72,7 +72,7 @@ const tx = new Transaction()
 
 const sig = await sendAndConfirmTransaction(conn, tx, [kp]);
 console.log(`signature: ${sig}`);
-console.log(`explorer:  https://solscan.io/tx/${sig}?cluster=devnet`);
+console.log(`explorer:  https://explorer.solana.com/tx/${sig}?cluster=devnet`);
 
 try {
   const acct = await getAccount(conn, ata);

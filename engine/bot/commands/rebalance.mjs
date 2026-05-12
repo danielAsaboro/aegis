@@ -4,10 +4,11 @@
  * Usage:
  *   /rebalance set SOL:50 ETH:30 USDC:20  — set targets
  *   /rebalance status                      — show current vs target
+ *   /rebalance pause <target-id> | /rebalance resume <target-id> | /rebalance clear <target-id>
  */
 
 import { createRebalanceTarget } from '../../core/types.mjs';
-import { setRebalanceTarget, getRebalanceTargets } from '../../store/plans.mjs';
+import { setRebalanceTarget, getRebalanceTargets, updateRebalanceTarget } from '../../store/plans.mjs';
 import { getPortfolioAllocations } from '../../utils/zerion-api.mjs';
 import { getEvmAddress, getSolAddress } from '../../../cli/utils/wallet/keystore.js';
 import { isSolana } from '../../../cli/utils/chain/registry.js';
@@ -61,6 +62,22 @@ export function registerRebalance(bot, config) {
       return;
     }
 
+    if (subcommand === 'pause' || subcommand === 'resume' || subcommand === 'clear') {
+      const targetId = args[1];
+      if (!targetId) {
+        await ctx.reply(`Usage: /rebalance ${subcommand} <target-id>`);
+        return;
+      }
+      const status = subcommand === 'pause' ? 'paused' : subcommand === 'resume' ? 'active' : 'cancelled';
+      const updated = await updateRebalanceTarget(targetId, { status });
+      if (!updated) {
+        await ctx.reply(`Rebalance target ${targetId} not found`);
+        return;
+      }
+      await ctx.replyWithMarkdown(`Rebalance target \`${targetId}\` → *${updated.status}*`);
+      return;
+    }
+
     if (subcommand === 'status' || !subcommand) {
       const targets = await getRebalanceTargets(ctx.chat.id);
       if (targets.length === 0) {
@@ -82,6 +99,6 @@ export function registerRebalance(bot, config) {
       return;
     }
 
-    await ctx.reply('Usage: /rebalance [set|status]');
+    await ctx.reply('Usage: /rebalance [set|status|pause|resume|clear]');
   });
 }

@@ -4,7 +4,7 @@
  * autonomous envelope; everything inside that envelope (per-tx ≤ cap,
  * within policy bundle) auto-approves through the gate.
  *
- * commitMission is itself approval-gated: the chat surface still asks
+ * commitMission is itself approval-gated: the operator-facing surface still asks
  * the user "are you sure?" before the agent commits a Mission. That's
  * the *only* approval for the entire mission lifetime — every tick
  * inside the envelope auto-approves through `_approval-gate.mjs`.

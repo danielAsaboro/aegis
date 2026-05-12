@@ -3,10 +3,11 @@
 import { useEffect, useState } from "react";
 
 const LINKS = [
-  { label: "Flow", href: "#demo" },
-  { label: "Policies", href: "#how-it-works" },
-  { label: "Architecture", href: "#architecture" },
-  { label: "Surfaces", href: "#surfaces" },
+  { label: "Flow", href: "/#demo" },
+  { label: "Policies", href: "/#how-it-works" },
+  { label: "Architecture", href: "/#architecture" },
+  { label: "Surfaces", href: "/#surfaces" },
+  { label: "Changelog", href: "/changelog" },
 ];
 
 export function Nav() {
@@ -29,7 +30,7 @@ export function Nav() {
         }`}
       >
         <a
-          href="#"
+          href="/"
           className="group flex min-h-10 items-center gap-3 rounded-xl px-1.5 focus-ring"
           aria-label="AEGIS home"
         >
@@ -58,7 +59,7 @@ export function Nav() {
 
         <div className="flex items-center gap-2">
           <a
-            href="#quickstart"
+            href="/#quickstart"
             className="hidden min-h-10 items-center rounded-xl px-3 font-mono text-[0.72rem] uppercase tracking-[0.16em] text-text-muted transition-colors duration-150 ease-out hover:text-aegis-gold focus-ring sm:inline-flex"
           >
             Install

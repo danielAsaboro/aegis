@@ -11,12 +11,12 @@
  *                            execute on approval. No LLM tool loop.
  *   - act, advisory or
  *     sizeUsd > cap        → forward the verdict to the existing tool-loop
- *                            agent so the chat surface drives approval.
+ *                            agent so the Telegram/operator approval path drives approval.
  *
  * Cost guards:
  *   - AEGIS_AGENT_AUTONOMY = off  → strategy is inert.
  *   - Per-signal-type cooldown via AEGIS_AGENT_SIGNAL_COOLDOWN_MS.
- *   - Per-strategy hourly invocation budget shared with chat surfaces.
+ *   - Per-strategy hourly invocation budget shared with operator surfaces.
  *
  * The auto-execute branch still goes through `runPolicies(...)`. Spend-limit,
  * cooldown, time-window etc. remain authoritative — the structured verdict
@@ -161,7 +161,7 @@ export class AgentStrategy extends BaseStrategy {
 
     // Advisory path (or autonomous + over-cap): hand off to the tool-loop
     // agent with a tightly-scoped prompt derived from the verdict so the
-    // chat surface's approval flow takes over.
+    // the operator approval flow takes over.
     await this._advisoryHandoff(signal, verdict, budgetKey);
   }
 

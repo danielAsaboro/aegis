@@ -231,7 +231,7 @@ export async function recordMissionExcursion({ missionId, proposalId, amountUsd,
 
 /**
  * Look up the most-recently-active mission that should govern a given
- * chat-driven tool call. The match is intentionally loose — a user may
+ * operator-driven tool call. The match is intentionally loose — a user may
  * commit "DCA SOL" and then ask the agent for an unrelated swap; the gate
  * only auto-approves when the active mission's policies cover the trade
  * (matching kind 'agent' is the explicit blanket envelope).

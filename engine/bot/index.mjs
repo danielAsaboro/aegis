@@ -19,6 +19,7 @@ import { registerHistory } from './commands/history.mjs';
 import { registerPolicy } from './commands/policy.mjs';
 import { registerAlerts } from './commands/alerts.mjs';
 import { registerRebalance } from './commands/rebalance.mjs';
+import { registerSchedule } from './commands/schedule.mjs';
 import { registerPropose } from './commands/propose.mjs';
 import { registerVote } from './commands/vote.mjs';
 import { registerWhale } from './commands/whale.mjs';
@@ -36,7 +37,9 @@ import { registerVoice } from './handlers/voice.mjs';
  * @returns {Telegraf}
  */
 export function createBot(config) {
-  const bot = new Telegraf(config.botToken);
+  const bot = new Telegraf(config.botToken, {
+    handlerTimeout: config.handlerTimeoutMs,
+  });
 
   // Error handler
   bot.catch((err, ctx) => {
@@ -63,6 +66,7 @@ export function createBot(config) {
   registerPolicy(bot);
   registerAlerts(bot, config);
   registerRebalance(bot, config);
+  registerSchedule(bot, config);
   registerPropose(bot, config);
   registerVote(bot, config);
   registerWhale(bot);
@@ -83,15 +87,16 @@ export function createBot(config) {
     'Talk to me — I understand natural language. Try: "what is my portfolio?" or "swap 0.01 SOL to USDC".\n\n' +
     '/agent — Manage the LLM agent (model, autonomy, reset history)\n' +
     '/start — Welcome + wallet info\n' +
-    '/dca — DCA plans (create/list/pause/cancel)\n' +
+    '/dca — DCA plans (create/list/pause/resume/cancel)\n' +
     '/rebalance — Portfolio rebalancing\n' +
     '/alerts — Price alerts & auto-trading\n' +
+    '/schedule — Generic periodic agent jobs\n' +
     '/trade — Manual swap (add --private for private execution)\n' +
     '/propose — Group trade proposal\n' +
     '/vote — Vote on proposals\n' +
     '/status — Portfolio + active strategies\n' +
     '/history — Execution log\n' +
-    '/policy — View active policies\n' +
+    '/policy — View/update policies\n' +
     '/whale — Whale tracking\n' +
     '/shield — Private balance (MagicBlock)\n' +
     '/help — This message'

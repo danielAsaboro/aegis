@@ -1,0 +1,53 @@
+---
+title: "Development"
+description: "Run AEGIS and its Mintlify docs locally, validate content, and use the real test commands in this repo."
+icon: "terminal"
+---
+
+## Run the product locally
+
+```bash
+pnpm install
+pnpm db:push
+node --env-file=.env.local engine/index.mjs
+```
+
+Useful entry points:
+
+- `pnpm test:unit`
+- `pnpm test:integration`
+- `pnpm test:e2e`
+- `node engine/index.mjs --studio`
+- `node --env-file=.env.local engine/index.mjs mcp`
+
+## Run the docs locally
+
+From `aegis/docs`, use the Mintlify CLI:
+
+```bash
+mint dev
+```
+
+Useful checks:
+
+```bash
+mint validate
+mint broken-links
+mint a11y
+```
+
+## Publish flow
+
+This docs site deploys through Mintlify's git-based flow:
+
+1. Edit files under `docs/`.
+2. Validate locally with `mint validate`.
+3. Commit and push the changes to the connected repository branch.
+4. Mintlify deploys the updated docs after the push reaches the tracked branch.
+
+## Working rules for this repo
+
+- Keep AEGIS as a fork built on top of Zerion CLI.
+- Do not replace Zerion as the wallet or swap execution backend.
+- Do not document or build bypass paths around chain locks, spend limits, expiry windows, approval gates, or similar controls.
+- Use the repo's real test commands instead of placeholder verification.

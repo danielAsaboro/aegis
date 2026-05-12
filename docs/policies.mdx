@@ -1,0 +1,40 @@
+---
+title: "Policy engine"
+description: "AEGIS enforces fail-closed policy checks before every value-moving action."
+icon: "lock"
+---
+
+The policy engine is the core safety boundary in AEGIS. Every trade, DCA tick, bridge, and shield action must pass policy evaluation before the executor signs or broadcasts anything.
+
+<Warning>
+  AEGIS does not support a bypass flag. Empty policy config fails closed, and proposals without a passing `policyResult` are rejected by the executor.
+</Warning>
+
+## Built-in policies
+
+| Policy | Purpose |
+| --- | --- |
+| `spend-limit` | Cap per-tick, daily, and total notional size |
+| `cooldown` | Enforce minimum time between actions |
+| `time-window` | Restrict execution to configured UTC windows |
+| `price-guard` | Bound slippage and absolute prices |
+| `consensus` | Require multi-party approval for larger actions |
+| `privacy` | Route qualifying actions to the private execution path |
+
+## Where enforcement happens
+
+1. The tool creates a structured proposal.
+2. `runPolicies()` evaluates the proposal against the active config.
+3. The executor refuses to proceed if the result is missing or denied.
+4. Approval UI, when present, acts as an extra gate rather than a replacement.
+
+## Verification
+
+Use the repo's real checks:
+
+```bash
+pnpm test:unit
+pnpm judge-trace
+```
+
+The no-bypass behavior is also covered by the unit tests listed in the project README and submission evidence.

@@ -1,0 +1,52 @@
+---
+title: "x402 endpoints"
+description: "Use Zerion's pay-per-call API endpoints without a standard API key."
+icon: "coins"
+---
+
+Pay-per-call API endpoints can be used through the x402 protocol. This is useful when you want metered access without provisioning a traditional API key.
+
+## Prerequisites
+
+Configure at least one wallet key holding USDC:
+
+```bash
+export WALLET_PRIVATE_KEY="0x..."
+```
+
+Or configure chain-specific keys:
+
+```bash
+export EVM_PRIVATE_KEY="0x..."
+export SOLANA_PRIVATE_KEY="5C1y..."
+export ZERION_X402_PREFER_SOLANA=true
+```
+
+## Base URL
+
+```text
+https://api.zerion.io/v1
+```
+
+## Common endpoints
+
+| Endpoint | Description |
+| --- | --- |
+| `GET /wallets/:address/portfolio` | Portfolio overview |
+| `GET /wallets/:address/positions/` | Token balances and DeFi positions |
+| `GET /wallets/:address/transactions/` | Interpreted transaction history |
+| `GET /wallets/:address/pnl` | Realized and unrealized PnL |
+| `GET /chains/` | Supported chains |
+| `GET /fungibles/` | Search and list fungible tokens |
+
+## CLI example
+
+```bash
+zerion wallet portfolio 0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045 --x402
+```
+
+## Pricing
+
+- $0.01 USDC per request
+- Payment handled through the HTTP 402 handshake
+- The payer wallet needs USDC on the offered network

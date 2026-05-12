@@ -1,0 +1,80 @@
+---
+title: "Models"
+description: "Supported AEGIS model routes, live switching, QVAC local model configuration, and rejected API-key paths."
+icon: "brain"
+---
+
+AEGIS supports subscription-backed and local model routes only. It deliberately rejects API-key billed LLM routes for the trading agent.
+
+## Supported model IDs
+
+| Model ID | Backend | Required setup |
+| --- | --- | --- |
+| `codex/default` | Codex CLI through the user's ChatGPT subscription | Install Codex CLI and run `codex login` once |
+| `qvac/local` | Local QVAC LLM through the Bare-runtime sidecar | Run `pnpm qvac:download` or set `QVAC_LLM_MODEL_PATH` to a GGUF chat model |
+
+When `AEGIS_AGENT_MODEL` is unset, AEGIS prefers `qvac/local` if `QVAC_LLM_MODEL_PATH` is set. Otherwise it falls back to `codex/default`.
+
+## Live switching
+
+Use Telegram to switch without restarting the runtime:
+
+```text
+/agent model codex/default
+/agent model qvac/local
+```
+
+`/agent model` with no model ID prints the active model and the available IDs.
+
+All supported models use the same AEGIS tool registry, telemetry, approvals, and policy gate.
+
+## Environment variables
+
+| Variable | Purpose |
+| --- | --- |
+| `AEGIS_AGENT_MODEL` | Active model ID. Supports `codex/default` and `qvac/local`. |
+| `CODEX_BIN` | Path to the Codex CLI binary. Defaults to `codex` on `PATH`. |
+| `CODEX_DEFAULT_MODEL` | Optional model hint passed to Codex. Leave blank to let Codex choose through ChatGPT account auth. |
+| `QVAC_LLM_MODEL_PATH` | GGUF chat model path. Required for `qvac/local`. |
+| `QVAC_LLM_DEVICE` | `cpu` or `gpu`. |
+| `QVAC_LLM_GPU_LAYERS` | Number of layers to offload when using GPU. |
+| `QVAC_LLM_CTX_SIZE` | Local LLM context window. |
+| `QVAC_LLM_TEMP` | Sampling temperature. Lower is more deterministic for tool calls. |
+| `QVAC_LLM_PREDICT` | Max predicted tokens per turn. |
+| `QVAC_LLM_MAX_TOOL_STEPS` | Max local tool-call iterations before forcing plain text. |
+
+## QVAC model assets
+
+QVAC also powers optional local memory and voice paths:
+
+| Variable | Capability |
+| --- | --- |
+| `QVAC_ENABLE_RAG` | Enables semantic memory tools. |
+| `QVAC_EMBED_MODEL_PATH` | Embedding GGUF for facts and historical tool calls. |
+| `QVAC_ENABLE_VOICE` | Enables Telegram voice note transcription and read-back. |
+| `QVAC_WHISPER_MODEL_PATH` | Whisper.cpp model for speech-to-text. |
+| `QVAC_WHISPER_VAD_MODEL_PATH` | Optional VAD model. |
+| `QVAC_TTS_MODEL_DIR` | ONNX TTS model bundle directory. |
+| `QVAC_FFMPEG_PATH` | Optional ffmpeg override for audio transcoding. |
+
+Run:
+
+```bash
+pnpm qvac:download
+pnpm db:push
+pnpm qvac:backfill
+```
+
+`pnpm qvac:backfill` embeds existing `AgentFact` and `AgentToolCall` rows so `searchFacts`, `searchTradeHistory`, and `summarizeSimilarTrades` can use local semantic recall.
+
+## Rejected model routes
+
+`openai/*`, `anthropic/*`, and other API-key billed LLM providers are not accepted by `engine/agent/resolve-model.mjs`.
+
+That is intentional:
+
+- the autonomous trading agent should not charge an operator through a hidden metered key path
+- the QVAC path is meant to remove the cloud dependency for local inference
+- the same tool loop and policy gate should apply regardless of the active supported model
+
+If you pass an unsupported provider, AEGIS returns an explicit error instead of silently falling back.

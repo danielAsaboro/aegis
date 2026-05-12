@@ -23,6 +23,75 @@ import { getKeypair } from '../lib/keypair.mjs';
 import { recordMissionTrade } from '../missions/index.mjs';
 import bus from '../core/event-bus.mjs';
 
+const ADVISORY_HALT_CODES = new Set([
+  'missing_agent_token',
+  'missing_wallet_address',
+  'insufficient_balance',
+  'unsupported_private_route',
+  'quote_blocked',
+]);
+
+function createFailedResult(proposal, { error, errorCode, quote, advisoryHalt = false }) {
+  return createExecutionResult(proposal, {
+    success: false,
+    error,
+    errorCode,
+    quote,
+    advisoryHalt,
+  });
+}
+
+async function finalizeFailure(proposal, opts) {
+  const result = createFailedResult(proposal, opts);
+  await logExecution(result);
+  bus.emit('EXECUTION_FAILED', result);
+  return result;
+}
+
+function getWalletAddress(walletName, chain) {
+  return isSolana(chain)
+    ? getSolAddress(walletName)
+    : getEvmAddress(walletName);
+}
+
+function classifyPrivateRouting({ proposal, usePrivate }) {
+  const policyRequestedPrivate = usePrivate === true || proposal.usePrivate === true;
+  const strategyForcedPrivate = proposal.forcePrivate === true;
+  return {
+    goPrivate: policyRequestedPrivate || strategyForcedPrivate || shouldUsePrivate(proposal, proposal.policies?.privacy),
+    policyRequestedPrivate,
+    strategyForcedPrivate,
+  };
+}
+
+function unsupportedPrivateRouteMessage(proposal) {
+  return (
+    `Private execution does not support ${proposal.fromToken} -> ${proposal.toToken} yet. ` +
+    `MagicBlock shielding currently handles same-token private routing only.`
+  );
+}
+
+export function isAdvisoryExecutionFailure(result) {
+  return !!result?.advisoryHalt || ADVISORY_HALT_CODES.has(result?.errorCode);
+}
+
+export function getExecutionFailureGuidance(result) {
+  switch (result?.errorCode) {
+    case 'missing_agent_token':
+      return 'Create or attach an agent token, then retry the plan.';
+    case 'missing_wallet_address':
+      return `Configure wallet "${result?.walletName || 'default'}" for the target chain, then retry.`;
+    case 'insufficient_balance':
+      return `Fund the wallet with more ${result?.fromToken || 'source token'} before the next tick.`;
+    case 'unsupported_private_route':
+      return 'Disable private routing for this plan or use a supported same-token shield flow.';
+    case 'quote_blocked':
+      return 'Check the quote preconditions and wallet state, then retry.';
+    default:
+      return 'Check daemon logs for the exact failure and retry after remediation.';
+  }
+}
+
 /**
  * Execute a trade proposal — the full pipeline.
  * Assumes policies have already been checked (PolicyEngine handles that).
@@ -55,31 +124,71 @@ export async function executeTrade(proposal, { walletName, maxSlippage, usePriva
   }
 
   // Determine if we should use private execution
-  const goPrivate = usePrivate || proposal.usePrivate || proposal.forcePrivate ||
-    shouldUsePrivate(proposal, proposal.policies?.privacy);
+  const { goPrivate, policyRequestedPrivate, strategyForcedPrivate } = classifyPrivateRouting({
+    proposal,
+    usePrivate,
+  });
 
   if (goPrivate && isSolana(chain)) {
-    executionLog.info({ proposalId: proposal.id, strategy: proposal.strategyType }, 'Routing to private execution');
+    if (proposal.fromToken !== proposal.toToken) {
+      if (policyRequestedPrivate || strategyForcedPrivate) {
+        return finalizeFailure(proposal, {
+          error: unsupportedPrivateRouteMessage(proposal),
+          errorCode: 'unsupported_private_route',
+          advisoryHalt: true,
+        });
+      }
 
-    // Get keypair from env var
-    const keypair = getKeypair();
-    if (keypair) {
-      return executePrivateTrade(proposal, { keypair, maxSlippage });
+      executionLog.warn({
+        proposalId: proposal.id,
+        fromToken: proposal.fromToken,
+        toToken: proposal.toToken,
+      }, 'Private route unsupported for pair; falling back to public execution');
+    } else {
+      executionLog.info({ proposalId: proposal.id, strategy: proposal.strategyType }, 'Routing to private execution');
+
+      // Get keypair from env var
+      const keypair = getKeypair();
+      if (keypair) {
+        return executePrivateTrade(proposal, { keypair, maxSlippage });
+      }
+
+      executionLog.warn('Private execution requested but SOLANA_PRIVATE_KEY not set - falling back to public');
     }
-
-    executionLog.warn('Private execution requested but SOLANA_PRIVATE_KEY not set - falling back to public');
   }
 
   executionLog.info({ proposalId: proposal.id, strategy: proposal.strategyType }, 'Executing trade (public)');
 
   try {
     // Resolve wallet address for the chain
-    const walletAddress = isSolana(chain)
-      ? getSolAddress(walletName)
-      : getEvmAddress(walletName);
+    let walletAddress = null;
+    try {
+      walletAddress = getWalletAddress(walletName, chain);
+    } catch (err) {
+      executionLog.warn({
+        proposalId: proposal.id,
+        walletName,
+        chain,
+        error: err.message,
+      }, 'wallet resolution failed');
+    }
 
     if (!walletAddress) {
-      throw new Error(`No ${chain} address found for wallet "${walletName}"`);
+      return finalizeFailure(proposal, {
+        error: `No ${chain} address found for wallet "${walletName}"`,
+        errorCode: 'missing_wallet_address',
+        advisoryHalt: true,
+      });
+    }
+
+    // Missing token is operator-error, so fail fast before quote/execution.
+    const passphrase = getAgentToken();
+    if (!passphrase) {
+      return finalizeFailure(proposal, {
+        error: 'No agent token configured. Set ZERION_AGENT_TOKEN or run: zerion agent create-token',
+        errorCode: 'missing_agent_token',
+        advisoryHalt: true,
+      });
     }
 
     // Get swap quote from Zerion
@@ -93,18 +202,32 @@ export async function executeTrade(proposal, { walletName, maxSlippage, usePriva
       slippage: maxSlippage,
     });
 
+    if (quote.preconditions?.enough_balance === false) {
+      return finalizeFailure(proposal, {
+        error: `Insufficient ${proposal.fromToken} balance for this trade`,
+        errorCode: 'insufficient_balance',
+        quote,
+        advisoryHalt: true,
+      });
+    }
+
+    if (quote.blocking) {
+      return finalizeFailure(proposal, {
+        error:
+          `Quote blocked: ${quote.blocking.message || quote.blocking.code}` +
+          (quote.blocking.hint ? ` (${quote.blocking.hint})` : ''),
+        errorCode: quote.blocking.code || 'quote_blocked',
+        quote,
+        advisoryHalt: quote.blocking.code === 'not_enough_input_asset_balance' || quote.blocking.code === 'quote_blocked',
+      });
+    }
+
     executionLog.info({
       proposalId: proposal.id,
       from: `${proposal.amount} ${proposal.fromToken}`,
       to: `~${quote.estimatedOutput} ${proposal.toToken}`,
       source: quote.liquiditySource,
     }, 'Quote received');
-
-    // Execute the swap
-    const passphrase = getAgentToken();
-    if (!passphrase) {
-      throw new Error('No agent token configured. Set ZERION_AGENT_TOKEN or run: zerion agent create-token');
-    }
 
     const swapResult = await executeSwap(quote, walletName, passphrase);
     const txHash = swapResult.hash || swapResult.signature || null;
@@ -167,15 +290,10 @@ export async function executeTrade(proposal, { walletName, maxSlippage, usePriva
       elapsed: Date.now() - startTime,
     }, 'Trade execution failed');
 
-    const result = createExecutionResult(proposal, {
-      success: false,
+    return finalizeFailure(proposal, {
       error: err.message,
+      errorCode: err.code || 'execution_transport_error',
     });
-
-    await logExecution(result);
-    bus.emit('EXECUTION_FAILED', result);
-
-    return result;
   }
 }
 
@@ -184,7 +302,7 @@ export async function executeTrade(proposal, { walletName, maxSlippage, usePriva
  */
 export function getTxExplorerUrl(txHash, chain) {
   if (!txHash) return null;
-  if (isSolana(chain)) return `https://solscan.io/tx/${txHash}`;
+  if (isSolana(chain)) return `https://explorer.solana.com/tx/${txHash}`;
 
   const explorers = {
     ethereum: 'https://etherscan.io/tx/',

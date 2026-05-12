@@ -1,0 +1,40 @@
+---
+title: "QVAC"
+description: "AEGIS can run with local-first AI through QVAC for models, memory, and voice."
+icon: "cpu"
+---
+
+AEGIS supports a fully local-first path through QVAC. This lets you keep model inference, embeddings, and voice handling on-device instead of routing everything through API-key billed cloud providers.
+
+## What is integrated
+
+- Local LLM provider through `qvac/local`
+- Embeddings and semantic memory for facts and historical tool calls
+- Local speech-to-text for voice trading
+- Local text-to-speech for spoken responses
+
+## Setup
+
+```bash
+pnpm qvac:download
+pnpm db:push
+pnpm qvac:backfill
+```
+
+Set the relevant model paths in `.env` before switching the agent model.
+
+## Switch providers
+
+```bash
+AEGIS_AGENT_MODEL=qvac/local node engine/index.mjs
+```
+
+Or switch during a live session with the product commands described in the README.
+
+## Design rule
+
+QVAC features fail closed. Missing models raise typed availability errors instead of silently falling back to a cloud model.
+
+<Card title="Model reference" icon="brain" href="/models">
+  See the complete `qvac/local` model variables and live-switching commands.
+</Card>

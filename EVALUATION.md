@@ -85,8 +85,8 @@ three.
         │                     │
   ┌─────▼─────┐         ┌─────▼─────────────────────┐
   │  Zerion   │         │  MagicBlock private exec  │
-  │  swap     │         │  (deposit, swap-in-shield,│
-  │  routing  │         │   withdraw)               │
+  │  swap     │         │  (verified shield deposit,│
+  │  routing  │         │   transfer/withdraw WIP)  │
   │  (mainnet)│         │                           │
   └───────────┘         └───────────────────────────┘
 ```
@@ -120,7 +120,7 @@ Real transactions, Zerion-routed swaps.
 
 - **Real onchain proof.** TradeExecution rows in the SQLite store
   capture every executed swap with `txHash`, `liquiditySource`, and
-  Solscan/Etherscan URLs. The agent renders these as-is in chat (it
+  Solana Explorer/Etherscan URLs. The agent renders these as-is in chat (it
   is forbidden by the system prompt to invent or rephrase tx hashes).
 
 - **Multi-chain.** Solana primary, full EVM support (60+ chains) via
@@ -292,7 +292,7 @@ Both halves run **real** packages on the runtime they were built for.
 No shims, no FFI tricks, no mocks.
 
 See `engine/qvac/sidecar/{sidecar.cjs,client.mjs}` and the full
-incident log in `qvac-hurdles.md` for the 18 real bugs we hit and fixed
+incident log in `qvac-hurdles.md` for the 27 real bugs we hit and fixed
 along the way.
 
 **Files to point at during evaluation.**
@@ -301,7 +301,7 @@ along the way.
 - `engine/agent/tools/memory-search.mjs` — the RAG tools wired to QVAC.
 - `engine/bot/handlers/voice.mjs` — voice handler.
 - `engine/qvac/sidecar/` — the Bare bridge.
-- `qvac-hurdles.md` — 19 documented hurdles + fixes.
+- `qvac-hurdles.md` — 27 documented hurdles + fixes.
 
 ---
 
@@ -339,7 +339,8 @@ the cited output. No "should work" entries.
 |---|---|---|
 | Zerion swap routing | ✅ | `tests/e2e/working-wallet.test.mjs`, real tx hashes captured |
 | Policy engine fail-closed | ✅ | `tests/unit/policies/no-bypass.test.mjs`, `tests/unit/agent/no-bypass.test.mjs` |
-| MagicBlock shield deposit/withdraw | ✅ | `engine/lib/magicblock/client.mjs` against devnet ephemeral rollup |
+| MagicBlock shield deposit | ✅ | Verified devnet shield deposits through `engine/lib/magicblock/client.mjs` |
+| MagicBlock private transfer/withdraw cycle | blocked | `withdrawSpl` currently fails with `DelegationRecordInvalidAccountOwner` after `delegateSpl({ private: true })`; disclosed in `TRACKS.md` |
 | Telegram bot surface | ✅ | All slash commands + `/agent`, voice, skills wired |
 | QVAC embeddings | ✅ | Live model: paraphrase 0.81 vs unrelated 0.34, 188 ms ranked |
 | QVAC voice STT | ✅ | Real WAV → real transcript through Bare sidecar |
@@ -360,7 +361,7 @@ In order:
 
 1. `EVALUATION.md` — this file.
 2. `TRACKS.md` — the per-track submission map.
-3. `qvac-hurdles.md` — the technical-depth receipts (19 entries).
+3. `qvac-hurdles.md` — the technical-depth receipts (27 entries).
 4. `engine/agent/tools/swap.mjs` — see how a value-moving tool
    is forced through the policy engine.
 5. `engine/qvac/sidecar/{sidecar.cjs,client.mjs}` — the Bare
@@ -378,7 +379,7 @@ If walking a judge or evaluator through:
 
 1. **Show natural-language trade.** Telegram message: *"swap 0.05 SOL
    to USDC."* Watch quote → approval keyboard → tap → real tx hash on
-   Solscan.
+   Solana Explorer.
 
 2. **Show the policy gate refusing.** Configure a $0.01 daily limit,
    try to swap $1. Get `denied: spendLimit, reason: ...` verbatim.
@@ -399,7 +400,7 @@ If walking a judge or evaluator through:
    internet. Repeat any of the above. Real tool calls still dispatch,
    real synthesis still happens. **All on-device.**
 
-7. **Show the receipts.** Open `qvac-hurdles.md` — 19 real bugs hit and
+7. **Show the receipts.** Open `qvac-hurdles.md` — 27 real bugs hit and
    fixed, each with the actual error message and the actual code that
    resolved it. This is what the technical-depth slice of the rubric
    eats first.
@@ -418,6 +419,6 @@ fund-moving actions cannot bypass a fail-closed policy engine.
 Three separate "where does control leak?" questions, three answers, in
 one repo. All four QVAC capabilities (embeddings, STT, TTS, LLM) ship
 through a real Bare-runtime sidecar bridge — no shims, no mocks,
-nineteen documented hurdles solved along the way, every claim above
+27 documented hurdles solved along the way, every claim above
 backed by a test that runs against real models and real onchain
 infrastructure.

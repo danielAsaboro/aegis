@@ -20,6 +20,7 @@ import { registerOverviewRoutes } from './routes/overview.mjs';
 import { registerAgentRoutes } from './routes/agent.mjs';
 import { registerStrategyRoutes } from './routes/strategies.mjs';
 import { registerTradeRoutes } from './routes/trades.mjs';
+import { registerNotificationRoutes } from './routes/notifications.mjs';
 import { registerSignalSocket } from './ws/signals.mjs';
 import { registerLogSocket, attachLogStream } from './ws/logs.mjs';
 
@@ -65,6 +66,7 @@ export async function startStudio({ port = 7474 } = {}) {
   await registerAgentRoutes(app);
   await registerStrategyRoutes(app);
   await registerTradeRoutes(app);
+  await registerNotificationRoutes(app);
   registerSignalSocket(app);
   registerLogSocket(app);
 

@@ -14,7 +14,7 @@ export default async function mcpCmd() {
   // Must be set BEFORE the logger module is loaded.
   process.env.AEGIS_LOG_STDERR = '1';
 
-  const { startMcpServer } = await import('../engine/mcp-server.mjs');
+  const { startMcpServer } = await import('../../engine/mcp-server.mjs');
   try {
     await startMcpServer();
   } catch (err) {

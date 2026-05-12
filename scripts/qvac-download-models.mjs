@@ -15,7 +15,7 @@
  * --only=embed,whisper,tts,llm to pick.
  *
  * After fetching, the script prints the export lines you should add to
- * .env so the engine picks up the paths.
+ * .env.local so the engine picks up the paths.
  */
 
 import { createHash } from 'node:crypto';
@@ -211,7 +211,7 @@ async function main() {
   }
 
   console.log('---');
-  console.log('Add these to your .env (or shell profile) to wire AEGIS to the cached models:\n');
+  console.log('Add these to your .env.local or .env.devnet (or shell profile) to wire AEGIS to the cached models:\n');
   for (const e of exports) {
     console.log(`${e.envVar}=${e.path}`);
   }

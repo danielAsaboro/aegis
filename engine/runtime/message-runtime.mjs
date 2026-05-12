@@ -81,6 +81,7 @@ export function createMessageRuntime({
       },
       requestApprovals: async (approvals, result) => requestApprovals(envelope, approvals, result),
     });
+    await deliver(envelope, { type: 'turn_complete', messageId: envelope.messageId });
   }
 
   async function pump() {
@@ -93,6 +94,11 @@ export function createMessageRuntime({
         job.resolve(job.envelope.messageId);
       } catch (err) {
         log.warn({ err: err.message, messageId: job.envelope.messageId, source: job.envelope.source }, 'message processing failed');
+        deliver(job.envelope, {
+          type: 'turn_error',
+          messageId: job.envelope.messageId,
+          errorMsg: err?.message || String(err),
+        }).catch(() => {});
         job.reject(err);
       }
     }

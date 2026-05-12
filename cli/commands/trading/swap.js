@@ -9,8 +9,8 @@ import { validateTradingChainAsync } from "../../utils/common/validate.js";
 // At trade time the engine is required and there is no bypass flag.
 async function loadAegis() {
   const [engine, types] = await Promise.all([
-    import("../../engine/policies/engine.mjs"),
-    import("../../engine/core/types.mjs"),
+    import("../../../engine/policies/engine.mjs"),
+    import("../../../engine/core/types.mjs"),
   ]);
   return {
     runPolicies: engine.runPolicies,

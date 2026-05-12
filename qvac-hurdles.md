@@ -79,7 +79,7 @@ shim — those are explicit imports, and they aren't from Node's stdlib.
 **Fix.** Rewrote the sidecar against the Bare module surface:
 
 ```js
-const proc = require('bare-process')   // proc.env, proc.stdin, proc.stdout
+const proc = require('bare-process')   // proc.env.local, proc.stdin, proc.stdout
 const fs   = require('bare-fs')
 const path = require('bare-path')
 const os   = require('bare-os')
@@ -862,3 +862,210 @@ What works end-to-end as of the latest commit:
 All on-device, all real, no mocks — and the wrapper layer is hardened
 against every trap in this list so future consumers of `ai-sdk-qvac`
 can't accidentally re-trip them.
+
+## 24. Local surfpool mode booted the real message runtime, but the “normal agent” path died on `codex/default` auth instead of using the installed QVAC model
+
+**Symptom.** `node --env-file=.env.local scripts/local-mode.mjs chat "swap 0.001 SOL to USDC"` brought up the real agent stack, then failed before any tool call with repeated websocket `401 Unauthorized` errors from the Codex provider. The repo already had local GGUFs under `~/.cache/aegis/qvac/`, but local mode still inherited `AEGIS_AGENT_MODEL=codex/default`.
+
+**Root cause.** The first surfpool local-mode pass isolated wallet/config/database state and switched Solana broadcast to local RPC, but it never isolated the model provider. That meant the “message-driven agent” story still depended on a cloud-authenticated Codex session even when a real on-device QVAC model was installed. The architecture was correct (`messageRuntime` + daemon socket), but the default local-mode env was wrong for autonomous local testing.
+
+**Fix.** Teach `scripts/local-mode.mjs` to auto-discover a local GGUF (`~/.cache/aegis/qvac/qwen2.5-7b-instruct-q3_k_m.gguf`, then the 1.5B fallback), set `AEGIS_AGENT_MODEL=qvac/local`, and pass `QVAC_LLM_MODEL_PATH` into every local-mode subprocess. At the same time, expose the daemon/message path as a first-class local command and add an explicit `turn_complete` / `turn_error` event to `messageRuntime` so socket clients know when a turn is actually finished.
+
+```js
+function localEnv(overrides = {}) {
+  const qvacModelPath = resolveLocalQvacModelPath();
+  return {
+    ...process.env,
+    HOME: LOCAL_HOME,
+    DATA_DIR: LOCAL_DATA,
+    SOLANA_RPC_URL: SURFPOOL_URL,
+    AEGIS_AGENT_MODEL: qvacModelPath ? 'qvac/local' : (process.env.AEGIS_AGENT_MODEL || 'codex/default'),
+    QVAC_LLM_MODEL_PATH: qvacModelPath || process.env.QVAC_LLM_MODEL_PATH || '',
+    ...overrides,
+  };
+}
+```
+
+```js
+await runConversationUntilStable({ ... });
+await deliver(envelope, { type: 'turn_complete', messageId: envelope.messageId });
+```
+
+**Files:** `scripts/local-mode.mjs`, `engine/runtime/message-runtime.mjs`, `engine/ipc/socket.mjs`, `README.md`, `package.json`
+
+**Verification.** After the patch, `scripts/local-mode.mjs agent --approve-all "swap 0.001 SOL to USDC on Solana"` can drive the daemon/socket path with `qvac/local` instead of failing on Codex auth, and the client exits on the explicit `turn_complete` event rather than a brittle idle timeout.
+
+**Demo angle.** *"The local autonomous agent now really is local: inbound message, on-device QVAC reasoning, Zerion quote, policy gate, local surfpool broadcast, and a clean socket protocol that tells the client when the turn is done."*
+
+## 25. Judge-friendly QVAC auto-selection crashed because `envalid` forbids mutating validated env objects
+
+**Symptom.** After changing the submission path so AEGIS would prefer `qvac/local` when `QVAC_LLM_MODEL_PATH` is set, importing `engine/config.mjs` crashed immediately:
+
+```text
+TypeError: [envalid] Attempt to mutate environment value: AEGIS_AGENT_MODEL
+```
+
+**Root cause.** `cleanEnv()` returns a protected object whose validated fields cannot be reassigned. The first implementation tried to backfill `env.AEGIS_AGENT_MODEL` after validation, which is precisely what envalid blocks.
+
+**Fix.** Keep the validated result immutable and export a derived frozen object that overlays the inferred default instead of mutating the original.
+
+```js
+const rawEnv = cleanEnv(process.env, { ... });
+
+const env = Object.freeze({
+  ...rawEnv,
+  AEGIS_AGENT_MODEL: rawEnv.AEGIS_AGENT_MODEL || (rawEnv.QVAC_LLM_MODEL_PATH ? 'qvac/local' : 'codex/default'),
+});
+```
+
+**Files:** `engine/config.mjs`, `.env.example`, `README.md`
+
+**Verification.** With `AEGIS_AGENT_MODEL=` and `QVAC_LLM_MODEL_PATH=/tmp/fake.gguf`, `node --input-type=module -e "import env from './engine/config.mjs'; console.log(env.AEGIS_AGENT_MODEL)"` now prints `qvac/local` instead of throwing.
+
+**Demo angle.** *"The default boot path now prefers the on-device model when it is actually configured, without breaking env validation or requiring judges to have Codex auth ready."*
+
+## 26. Telegram showed a 90s timeout even though QVAC eventually answered
+
+**Symptom.** In Telegram, a simple prompt like "what are you doing
+currently??" first produced:
+
+```text
+Error: Promise timed out after 90000 milliseconds
+```
+
+Then the real QVAC answer arrived later in the same chat. If another
+message was sent while the CPU-backed QVAC turn was still generating, the
+next turn failed with:
+
+```text
+llm already running — cancel first
+```
+
+**Root cause.** Telegraf's default `handlerTimeout` is 90 seconds. The
+local QVAC GGUF can exceed that on CPU, especially on the first model-load
+turn. Telegraf timed out the update handler and routed the timeout through
+`bot.catch()`, but the underlying QVAC generation kept running and later
+sent the actual reply. The model path was real; the Telegram handler
+deadline was too short for the local-first path.
+
+**Fix.** Add `AEGIS_TELEGRAM_HANDLER_TIMEOUT_MS` and derive a safer
+default from the active model. `qvac/*` now gets a 5-minute Telegram
+handler timeout by default; other providers keep Telegraf's 90-second
+behavior unless overridden.
+
+```js
+const activeAgentModel = rawEnv.AEGIS_AGENT_MODEL || (rawEnv.QVAC_LLM_MODEL_PATH ? 'qvac/local' : 'codex/default');
+
+const env = Object.freeze({
+  ...rawEnv,
+  AEGIS_AGENT_MODEL: activeAgentModel,
+  AEGIS_TELEGRAM_HANDLER_TIMEOUT_MS: rawEnv.AEGIS_TELEGRAM_HANDLER_TIMEOUT_MS || (activeAgentModel.startsWith('qvac/') ? 300_000 : 90_000),
+});
+```
+
+```js
+const bot = new Telegraf(config.botToken, {
+  handlerTimeout: config.handlerTimeoutMs,
+});
+```
+
+**Files:** `engine/config.mjs`, `engine/bot/index.mjs`, `engine/index.mjs`, `.env.example`
+
+**Verification.** Reproduced with the live Telegram bot on
+`qvac/local`: the bot logged `Promise timed out after 90000 milliseconds`
+before the delayed QVAC answer. After the patch, the configured handler
+timeout is 300000 ms for the same `.env.local` model selection, so Telegraf no
+longer emits the false 90-second error while QVAC is still generating.
+
+**Demo angle.** *"Local-first AI is slower on CPU, so the Telegram shell
+now waits like a local model host instead of pretending the agent failed at
+90 seconds."*
+
+## 27. Compacted chat summaries were durable facts, but not semantic memories
+
+**Symptom.** The agent could preserve old chat turns by compacting them
+into `AgentFact` rows, but fuzzy recall over "our notes", "our plan", or
+"that issue" would not find those compacted summaries through QVAC RAG.
+Only facts written through `rememberFact` were indexed immediately.
+
+**Root cause.** `engine/agent/db-memory.mjs::compactHistory` wrote
+`history-summary` facts directly with Prisma. That bypassed the
+`rememberFact` tool path, so `indexFact()` was never called for compacted
+conversation summaries. The data existed in SQLite, but was invisible to
+`searchFacts` until a separate full backfill happened.
+
+**Fix.** After the summary upsert, call `indexFact()` best-effort with the
+same non-fatal semantics used by `rememberFact`. This keeps compaction on
+the hot path safe when QVAC is disabled or unavailable, while making old
+plans/issues/chat summaries searchable as soon as they are compacted.
+
+```js
+const fact = await prisma.agentFact.upsert({
+  where: { userId_key: { userId, key } },
+  update: { value: summary, category: 'history-summary' },
+  create: { userId, key, value: summary, category: 'history-summary' },
+});
+
+try {
+  await indexFact(fact.id, `${fact.key} — ${fact.value} [history-summary]`);
+} catch (err) {
+  log.warn({ err: err.message, factId: fact.id }, 'history summary indexing failed (non-fatal)');
+}
+```
+
+**Files:** `engine/agent/db-memory.mjs`,
+`.agents/skills/memory-orchestration/SKILL.md`,
+`engine/agent/system-prompt.mjs`, `engine/agent/tools/facts.mjs`,
+`engine/agent/tools/memory-search.mjs`,
+`tests/unit/agent/{skills,system-prompt,tool-contract}.test.mjs`.
+
+**Verification.** `npm test` covers the existing compaction path plus the
+new memory-skill discovery and memory-tool contract rules.
+
+**Demo angle.** *"AEGIS now remembers the build scars as searchable local
+memory: old plans and issues survive compaction and can be found by
+meaning, not just by exact words."*
+
+## 28. Default unit tests inherited a live QVAC model and left the sidecar pending
+
+**Symptom.** `pnpm test:unit` reached `tests/unit/qvac/ai-sdk-provider.test.mjs`,
+ran the live `doGenerate` probe because `QVAC_LLM_MODEL_PATH` existed in
+`.env.local`, then hung until the process was killed. The final runner
+reported:
+
+```text
+✖ tests/unit/qvac/ai-sdk-provider.test.mjs (174553.673292ms)
+  'Promise resolution is still pending but the event loop has already resolved'
+```
+
+**Root cause.** The live local-GGUF test was keyed only on model presence.
+That made an expensive integration probe part of the default unit suite
+whenever a developer had QVAC configured. The sidecar was real, but the
+default unit command needs deterministic runtime and teardown.
+
+**Fix.** Gate the live model probe behind an explicit
+`AEGIS_RUN_QVAC_LIVE_TESTS=1` opt-in and add an abort-bounded test timeout.
+Pure provider/prompt conversion tests still run unconditionally.
+
+```js
+const runLiveQvac = process.env.AEGIS_RUN_QVAC_LIVE_TESTS === '1'
+  && process.env.QVAC_LLM_MODEL_PATH
+  && existsSync(process.env.QVAC_LLM_MODEL_PATH);
+
+describe('ai-sdk-qvac — live model', { skip: !runLiveQvac }, () => {
+  test('doGenerate returns text content for a trivial prompt', { timeout: 45_000 }, async () => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 40_000);
+    // ...
+  });
+});
+```
+
+**Files:** `tests/unit/qvac/ai-sdk-provider.test.mjs`, `README.md`
+
+**Verification.** `node --env-file=.env.local --test tests/unit/qvac/ai-sdk-provider.test.mjs`
+now passes the pure tests and skips the live model probe by default.
+
+**Demo angle.** *"Judges can run the unit suite without accidentally
+benchmarking a local 7B model; the real QVAC probe is still available as an
+explicit opt-in."*

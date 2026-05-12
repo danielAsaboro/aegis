@@ -7,9 +7,9 @@ import { cleanEnv, str, num, bool } from 'envalid';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
-const env = cleanEnv(process.env, {
+const rawEnv = cleanEnv(process.env, {
   // Required at bot/Zerion-API call sites — defaulted to '' here so
-  // surfaces that don't need them (e.g. `aegis chat` without trade tools)
+  // startup paths that don't need them yet (e.g. studio / MCP boot)
   // can still load. Bot startup and tools that hit the Zerion API check
   // for non-empty values themselves.
   TELEGRAM_BOT_TOKEN: str({ default: '', desc: 'Telegram bot token from @BotFather' }),
@@ -58,13 +58,14 @@ const env = cleanEnv(process.env, {
   //     driven as a raw language-model backend. AEGIS owns the tool loop.
   //   - qvac/*  — fully on-device LLM via the Bare-runtime QVAC sidecar
   //     (@qvac/llm-llamacpp). No keys, no cloud round-trips.
-  AEGIS_AGENT_MODEL: str({ default: 'codex/default', desc: 'Agent model id. Format: <provider>/<model>. Providers: codex (ChatGPT subscription), qvac (local).' }),
+  AEGIS_AGENT_MODEL: str({ default: '', desc: 'Agent model id. Format: <provider>/<model>. Providers: codex (ChatGPT subscription), qvac (local). When unset, AEGIS prefers qvac/local if QVAC_LLM_MODEL_PATH is set, else codex/default.' }),
   CODEX_BIN: str({ default: 'codex', desc: 'Path to the Codex CLI binary (used by codex/* models). Defaults to PATH lookup.' }),
   CODEX_DEFAULT_MODEL: str({ default: '', desc: 'Optional model passed to the Codex MCP `model` parameter when AEGIS_AGENT_MODEL=codex/default. Leave blank to let Codex pick (recommended for ChatGPT-account auth — explicit "gpt-5" is rejected there).' }),
   AEGIS_AGENT_AUTONOMY: str({ default: 'advisory', choices: ['off', 'advisory', 'autonomous'], desc: 'Autonomous-signal mode: off (no LLM on signals), advisory (propose to user), autonomous (auto-execute when policies pass)' }),
   AEGIS_AGENT_MAX_INVOCATIONS_PER_HOUR: num({ default: 20, desc: 'Per-user/strategy hourly cap on agent turns' }),
   AEGIS_AGENT_SIGNAL_COOLDOWN_MS: num({ default: 300_000, desc: 'Min ms between agent reactions to the same signal type' }),
   AEGIS_AUTO_EXECUTE_MAX_USD: num({ default: 10, desc: 'Max trade size (USD) for autonomous-signal auto-execute. Above this, autonomous mode falls back to advisory + approval.' }),
+  AEGIS_TELEGRAM_HANDLER_TIMEOUT_MS: num({ default: 0, desc: 'Telegram update handler timeout. 0 = auto: 5min for qvac/*, 90s otherwise.' }),
 
   // ── QVAC (Tether local-first AI SDK) ───────────────────────
   // Paths point at GGUF / GGML / ONNX model artifacts on disk. Empty = the
@@ -92,6 +93,14 @@ const env = cleanEnv(process.env, {
   QVAC_LLM_TEMP: num({ default: 0.4, desc: 'Sampling temperature for the local LLM (lower = more deterministic for tool calls).' }),
   QVAC_LLM_PREDICT: num({ default: 1024, desc: 'Max tokens to predict per turn.' }),
   QVAC_LLM_MAX_TOOL_STEPS: num({ default: 6, desc: 'Max tool-call iterations per QVAC LLM turn before forcing a plain-text reply.' }),
+});
+
+const activeAgentModel = rawEnv.AEGIS_AGENT_MODEL || (rawEnv.QVAC_LLM_MODEL_PATH ? 'qvac/local' : 'codex/default');
+
+const env = Object.freeze({
+  ...rawEnv,
+  AEGIS_AGENT_MODEL: activeAgentModel,
+  AEGIS_TELEGRAM_HANDLER_TIMEOUT_MS: rawEnv.AEGIS_TELEGRAM_HANDLER_TIMEOUT_MS || (activeAgentModel.startsWith('qvac/') ? 300_000 : 90_000),
 });
 
 export default env;

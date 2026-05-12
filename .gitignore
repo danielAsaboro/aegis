@@ -4,6 +4,7 @@ node_modules/
 # ── Environment / secrets ─────────────────────────────────────────────────────
 .env
 .env.local
+.env.devnet
 .env.*.local
 .env.development
 .env.production
@@ -69,3 +70,5 @@ chat/*.json
 .zerion/
 tmp/
 temp/
+.surfpool/
+.data/

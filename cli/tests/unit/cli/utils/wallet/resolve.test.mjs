@@ -4,8 +4,18 @@
 
 import { describe, it, before, after } from "node:test";
 import assert from "node:assert/strict";
-import { resolveDestination } from "#zerion/utils/wallet/resolve.js";
-import * as ows from "#zerion/utils/wallet/keystore.js";
+import { mkdtempSync, rmSync } from "node:fs";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
+
+const TEST_HOME = mkdtempSync(join(tmpdir(), "ows-resolve-home-"));
+process.env.HOME = TEST_HOME;
+process.env.USERPROFILE = TEST_HOME;
+
+const [{ resolveDestination }, ows] = await Promise.all([
+  import("#zerion/utils/wallet/resolve.js"),
+  import("#zerion/utils/wallet/keystore.js"),
+]);
 
 const MULTI = "resolve-test-multi";
 
@@ -16,6 +26,7 @@ before(() => {
 
 after(() => {
   try { ows.deleteWallet(MULTI); } catch {}
+  rmSync(TEST_HOME, { recursive: true, force: true });
 });
 
 describe("resolveDestination — chain-aware receiver picker", () => {

@@ -3,7 +3,6 @@
  * AEGIS — Autonomous Execution Governed by Intelligence Signals
  *
  * Entry point. Sub-routes:
- *   - `aegis chat ...`  → CLI chat REPL (no bot/monitors)
  *   - default           → Boot bot + strategies + monitors
  */
 
@@ -20,6 +19,14 @@ if (process.argv[2] === 'mcp') {
 if (process.argv[2] === 'judge-trace') {
   await import('../scripts/judge-trace.mjs');
   // judge-trace.mjs runs main() at import time and exits on completion.
+  process.exit(0);
+}
+
+// Sub-route `aegis judge-status` — read-only environment readiness check
+// for wallet, agent token, scoped policy, and optional live Zerion API probe.
+if (process.argv[2] === 'judge-status') {
+  process.argv.splice(2, 1); // strip 'judge-status' so the script sees flags
+  await import('../scripts/judge-status.mjs');
   process.exit(0);
 }
 
@@ -40,22 +47,11 @@ if (process.argv[2] === 'daemon-supervisor') {
   // runDaemonSupervisor never returns — process stays up until signaled.
 }
 
-// No args → launch the chat TUI directly, same as `aegis chat`
-if (process.argv.length === 2) {
-  process.argv.splice(2, 0, 'chat');
-}
-
-// Sub-route `aegis chat` BEFORE static config import so chat works even
-// when the bot-only env vars (TELEGRAM_BOT_TOKEN) aren't configured.
+// The CLI chat surface was removed to keep AEGIS aligned with the
+// Frontier track: long-running agent runtime + Telegram ingress.
 if (process.argv[2] === 'chat') {
-  // Route logs to stderr so they don't pollute the chat conversation on stdout.
-  process.env.AEGIS_LOG_STDERR = '1';
-  const rest = process.argv.slice(3);
-  const { default: chatCmd } = await import('../cli/commands/chat.js');
-  const { parseFlags } = await import('../cli/utils/common/flags.js');
-  const { rest: positional, flags } = parseFlags(rest);
-  await chatCmd(positional, flags);
-  process.exit(0);
+  process.stderr.write('`aegis chat` has been removed. Start `aegis` and send the agent messages through Telegram.\n');
+  process.exit(1);
 }
 
 // Parse --studio / --studio-port BEFORE the logger is imported, since
@@ -70,6 +66,7 @@ const { default: env } = await import('./config.mjs');
 const { default: logger } = await import('./core/logger.mjs');
 const { initDb } = await import('./db/index.mjs');
 const { createBot, setupNotifications } = await import('./bot/index.mjs');
+const { sendTelegramReply } = await import('./bot/formatters.mjs');
 const { startAllMonitors, stopAllMonitors } = await import('./monitors/index.mjs');
 const { startAllStrategies, stopAllStrategies } = await import('./strategies/index.mjs');
 const { createMessageRuntime } = await import('./runtime/message-runtime.mjs');
@@ -85,11 +82,11 @@ async function main() {
   logger.info('═══════════════════════════════════════════════');
 
   if (!env.TELEGRAM_BOT_TOKEN && !_studioFlag) {
-    logger.fatal('TELEGRAM_BOT_TOKEN is required to launch the bot. Set it in .env, run `aegis --studio` to boot studio without the bot, or `aegis chat` for the CLI surface.');
+    logger.fatal('TELEGRAM_BOT_TOKEN is required to launch AEGIS. Set it in .env.local or .env.devnet, or run `aegis --studio` for the local monitoring UI.');
     process.exit(1);
   }
   if (!env.ZERION_API_KEY) {
-    logger.fatal('ZERION_API_KEY is required for portfolio/trade tools. Set it in .env (get one at dashboard.zerion.io).');
+    logger.fatal('ZERION_API_KEY is required for portfolio/trade tools. Set it in .env.local or .env.devnet (get one at dashboard.zerion.io).');
     process.exit(1);
   }
 
@@ -153,6 +150,7 @@ async function main() {
       walletName,
       defaultChain: env.DEFAULT_CHAIN,
       requiredVotes: 3,
+      handlerTimeoutMs: env.AEGIS_TELEGRAM_HANDLER_TIMEOUT_MS,
     };
     bot = createBot(botConfig);
     notifyFn = setupNotifications(bot);
@@ -165,7 +163,10 @@ async function main() {
     deliveryHandlers: {
       telegram: async ({ envelope, type, text }) => {
         if (type !== 'response' || !text || !bot) return;
-        await bot.telegram.sendMessage(envelope.delivery.chatId, text);
+        await sendTelegramReply(
+          (body, extra) => bot.telegram.sendMessage(envelope.delivery.chatId, body, extra),
+          text,
+        );
       },
       notification: async ({ type, text }) => {
         if (type !== 'response' || !text) return;

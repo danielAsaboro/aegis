@@ -73,7 +73,10 @@ export function createTradeProposal({
 
 // ─── Execution Result ────────────────────────────────────────────────────────
 
-export function createExecutionResult(proposal, { success, txHash, error, quote, private: isPrivate, shieldedBalance }) {
+export function createExecutionResult(
+  proposal,
+  { success, txHash, error, errorCode, quote, private: isPrivate, shieldedBalance, advisoryHalt = false }
+) {
   return {
     id: `exec-${Date.now()}`,
     proposalId: proposal.id,
@@ -87,10 +90,14 @@ export function createExecutionResult(proposal, { success, txHash, error, quote,
     success,
     txHash: txHash || null,
     error: error || null,
+    errorCode: errorCode || null,
     estimatedOutput: quote?.estimatedOutput || null,
     liquiditySource: quote?.liquiditySource || null,
     private: isPrivate || false, // True if executed via MagicBlock
     shieldedBalance: shieldedBalance || null, // Remaining shielded balance after private execution
+    advisoryHalt,
+    chatId: proposal?.signal?.chatId ?? proposal?.chatId ?? null,
+    missionId: proposal?.missionId ?? null,
     timestamp: new Date().toISOString(),
   };
 }

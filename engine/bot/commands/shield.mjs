@@ -57,7 +57,7 @@ export function registerShield(bot, config) {
       if (!keypair) {
         await ctx.reply(
           'Keypair not configured for MagicBlock.\n\n' +
-          'Set SOLANA_PRIVATE_KEY in your .env file:\n' +
+          'Set SOLANA_PRIVATE_KEY in your .env.local or .env.devnet file:\n' +
           '`SOLANA_PRIVATE_KEY=<base58 or JSON array>`'
         );
         return;
@@ -99,7 +99,7 @@ export function registerShield(bot, config) {
       if (!keypair) {
         await ctx.reply(
           'Keypair not configured for MagicBlock.\n\n' +
-          'Set SOLANA_PRIVATE_KEY in your .env file.'
+          'Set SOLANA_PRIVATE_KEY in your .env.local or .env.devnet file.'
         );
         return;
       }

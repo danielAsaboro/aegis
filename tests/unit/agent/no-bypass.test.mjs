@@ -1,6 +1,6 @@
 /**
  * Agent no-bypass test — proves the LLM cannot skip the policy gate by
- * sneaking around the chat surface's approval prompt.
+ * sneaking around the operator approval prompt.
  */
 
 import { test, describe } from 'node:test';

@@ -90,6 +90,22 @@ describe('tool registry contract', () => {
       assert.notEqual(allTools[name].needsApproval, true, `facts tool ${name} should not require approval`);
     }
   });
+
+  test('portfolio tools document active-wallet defaults instead of asking users for wallet state', () => {
+    assert.match(allTools.getPortfolio.description, /omit walletName to use the active wallet/);
+    assert.match(allTools.getPositions.description, /Use this before DCA, rebalance, status/);
+    assert.match(allTools.getPositions.description, /Do not ask the user to list tokens, balances, wallet name, or chain first/);
+    assert.match(allTools.getHistory.description, /Omit walletName and chain unless the user explicitly names them/);
+  });
+
+  test('memory tools document durable notes, plans, issues, and secret redaction', () => {
+    assert.match(allTools.rememberFact.description, /open issues, fixed bugs, proof constraints, and project lessons/);
+    assert.match(allTools.rememberFact.description, /Never store private keys, seed phrases, API keys, passphrases, OTPs, or raw secrets/);
+    assert.match(allTools.recallFacts.description, /our plan/);
+    assert.match(allTools.listFacts.description, /notes\/plans\/issues\/lessons\/proofs\/preferences/);
+    assert.match(allTools.searchFacts.description, /notes, plans, issues, proof constraints, and project lessons/);
+    assert.match(allTools.searchTradeHistory.description, /avoid the failed one/);
+  });
 });
 
 describe('listAvailablePolicies (offline)', () => {

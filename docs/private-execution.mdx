@@ -1,0 +1,29 @@
+---
+title: "Private execution"
+description: "How AEGIS routes sensitive actions through MagicBlock's private execution path."
+icon: "user-secret"
+---
+
+AEGIS can route sensitive actions through MagicBlock instead of broadcasting directly to Solana mainnet. This path is used by the `privacy` policy and the shield tools.
+
+## Current behavior
+
+- Trades above `PRIVACY_THRESHOLD_USD` can be routed to the private path.
+- Tokens listed in `PRIVACY_TOKENS` can be forced into the private path.
+- Shield actions are exposed as first-class tools: `getShieldBalance`, `depositToShield`, and `withdrawFromShield`.
+
+## Implemented flow
+
+The implemented deposit path handles native SOL automatically:
+
+1. Wrap SOL to WSOL when needed.
+2. Create the associated token account idempotently.
+3. Delegate to the MagicBlock rollup through `delegateSpl`.
+
+## Known limitation
+
+The repo documents an open SDK issue on the withdraw path after a `private: true` deposit. The validated proof today is the deposit half of the shield cycle. See the proof page for the exact transaction hashes and the current blocker.
+
+<Card title="Submission proof" icon="badge-check" href="/track-evidence">
+  Review the verified MagicBlock deposit signatures and the current withdraw issue.
+</Card>

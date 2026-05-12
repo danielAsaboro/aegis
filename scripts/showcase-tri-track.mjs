@@ -17,7 +17,7 @@
  *   QVAC_LLM_MODEL_PATH=~/.cache/aegis/qvac/qwen2.5-7b-instruct-q3_k_m.gguf \
  *   SOLANA_PRIVATE_KEY=$(cat keys/demo2.json) \
  *   DATA_DIR=$(pwd)/.data \
- *   node --env-file=.env scripts/showcase-tri-track.mjs
+ *   node --env-file=.env.local scripts/showcase-tri-track.mjs
  */
 
 import { runAgentTurn, setActiveModel, clearHistory, appendHistory } from '../engine/agent/index.mjs';
@@ -166,11 +166,11 @@ async function main() {
       if (part.type !== 'tool-result' || !part.output) continue;
       const blob = JSON.stringify(part.output);
       for (const m of blob.matchAll(/"signature"\s*:\s*"([1-9A-HJ-NP-Za-km-z]{64,90})"/g)) addSig(m[1], part.toolName);
-      for (const m of blob.matchAll(/solscan\.io\/tx\/([1-9A-HJ-NP-Za-km-z]{64,90})/g)) addSig(m[1], part.toolName);
+      for (const m of blob.matchAll(/explorer\.solana\.com\/tx\/([1-9A-HJ-NP-Za-km-z]{64,90})/g)) addSig(m[1], part.toolName);
     }
   }
   if (result?.text) {
-    for (const m of result.text.matchAll(/solscan\.io\/tx\/([1-9A-HJ-NP-Za-km-z]{64,90})/g)) addSig(m[1], 'final-text');
+    for (const m of result.text.matchAll(/explorer\.solana\.com\/tx\/([1-9A-HJ-NP-Za-km-z]{64,90})/g)) addSig(m[1], 'final-text');
     for (const m of result.text.matchAll(/`([1-9A-HJ-NP-Za-km-z]{86,90})`/g)) addSig(m[1], 'final-text');
   }
 
@@ -181,7 +181,7 @@ async function main() {
     for (const s of signatures) {
       log(`  ${c.green}${s.tool}${c.reset}`);
       log(`    ${s.sig}`);
-      log(`    https://solscan.io/tx/${s.sig}?cluster=devnet`);
+      log(`    https://explorer.solana.com/tx/${s.sig}?cluster=devnet`);
     }
   }
 

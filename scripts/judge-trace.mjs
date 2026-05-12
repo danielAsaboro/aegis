@@ -98,7 +98,7 @@ async function main() {
     'spend-limit': { perTick: 10, daily: 100, total: 1000 },
     'cooldown': { intervalMs: 60_000 },
     'price-guard': { maxSlippage: 3 },
-    'privacy': { mode: 'auto', thresholdUsd: 100 },
+    'privacy': { mode: 'auto', thresholdUsd: 100, privateTokens: [] },
   };
 
   console.log(`   ${c.dim}config: ${JSON.stringify(passConfig)}${c.reset}\n`);
@@ -139,14 +139,14 @@ async function main() {
   console.log(`   ${c.bold}Denied by:${c.reset}    ${c.red}${denyResult.deniedBy}${c.reset}`);
   console.log(`   ${c.bold}Executor:${c.reset}     ${c.dim}never invoked — fail-closed${c.reset}`);
 
-  // ─── 4. Trade proposal #3 — large, routes private ───────────────────────
-  console.log(bar('4. Proposal #3 — DCA $200 USDC→SOL (routes private)'));
+  // ─── 4. Trade proposal #3 — supported shield route ──────────────────────
+  console.log(bar('4. Proposal #3 — Shield $200 USDC (same-token private route)'));
 
   const privProposal = createTradeProposal({
     strategyId: 'judge-trace-dca',
     strategyType: 'dca',
     fromToken: 'USDC',
-    toToken: 'SOL',
+    toToken: 'USDC',
     amount: 200,
     chain: 'solana',
     reason: 'judge-trace privacy case',

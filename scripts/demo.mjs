@@ -83,8 +83,8 @@ function parseArgs(argv) {
 
 function explorerUrl(sig, cluster) {
   return cluster === 'mainnet'
-    ? `https://solscan.io/tx/${sig}`
-    : `https://solscan.io/tx/${sig}?cluster=devnet`;
+    ? `https://explorer.solana.com/tx/${sig}`
+    : `https://explorer.solana.com/tx/${sig}?cluster=devnet`;
 }
 
 function inferCluster() {
@@ -142,7 +142,7 @@ ${colors.dim}Privacy-first trading agent — Zerion + MagicBlock + QVAC${colors.
   }
 
   if (!envOk) {
-    console.log(`\n${colors.red}Missing required environment variables. Copy .env.example to .env and configure.${colors.reset}`);
+    console.log(`\n${colors.red}Missing required environment variables. Copy .env.example to .env.local or .env.devnet and configure.${colors.reset}`);
     process.exit(1);
   }
 
@@ -341,7 +341,7 @@ ${colors.dim}Privacy-first trading agent — Zerion + MagicBlock + QVAC${colors.
   console.log(`
 ${colors.bright}Surfaces:${colors.reset}
   ${colors.cyan}pnpm start${colors.reset}                  Telegram bot + monitors + strategies
-  ${colors.cyan}aegis chat${colors.reset}                  CLI REPL (no bot env required)
+  ${colors.cyan}pnpm start${colors.reset}                  Primary judge path
   ${colors.cyan}aegis judge-trace${colors.reset}           Single-screen policy + privacy state machine
   ${colors.cyan}pnpm test:unit${colors.reset}              Run the 150+ unit suite
   ${colors.cyan}pnpm test:e2e:privacy${colors.reset}       Live privacy E2E (requires network + funds)

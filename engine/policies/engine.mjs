@@ -141,7 +141,7 @@ export function listAvailablePolicies() {
     { id: 'price-guard', name: 'Price Guard', desc: 'Max slippage and price bounds' },
     { id: 'cooldown', name: 'Cooldown', desc: 'Minimum interval between trades per strategy' },
     { id: 'consensus', name: 'Consensus', desc: 'Require N/M Telegram votes for large trades' },
-    { id: 'privacy', name: 'Privacy', desc: 'Route trades through MagicBlock for private execution' },
+    { id: 'privacy', name: 'Privacy', desc: 'Route supported private-eligible actions through MagicBlock' },
   ];
 }
 

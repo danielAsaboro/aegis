@@ -4,6 +4,7 @@
 
 import {
   Connection,
+  VersionedTransaction,
   sendAndConfirmRawTransaction,
 } from "@solana/web3.js";
 import { getSolanaRpcUrl } from "./registry.js";
@@ -15,6 +16,19 @@ function getConnection() {
     _connection = new Connection(getSolanaRpcUrl(), "confirmed");
   }
   return _connection;
+}
+
+async function maybeRefreshBlockhash(rawBytes, connection) {
+  const rpcUrl = getSolanaRpcUrl();
+  const localOverride = process.env.AEGIS_LOCAL_SURFPOOL_MODE === "1" ||
+    /127\.0\.0\.1|localhost/.test(rpcUrl);
+  if (!localOverride) return rawBytes;
+
+  const tx = VersionedTransaction.deserialize(rawBytes);
+  const { blockhash } = await connection.getLatestBlockhash("confirmed");
+  tx.message.recentBlockhash = blockhash;
+  tx.signatures = tx.signatures.map(() => new Uint8Array(64));
+  return Buffer.from(tx.serialize());
 }
 
 /**
@@ -38,7 +52,8 @@ export async function signAndBroadcastSolana(solanaTx, walletName, passphrase) {
     throw new Error("No transaction data from swap API for Solana");
   }
 
-  const rawBytes = Buffer.from(rawBase64, "base64");
+  let rawBytes = Buffer.from(rawBase64, "base64");
+  rawBytes = await maybeRefreshBlockhash(rawBytes, connection);
   const sigCount = rawBytes[0];
   if (sigCount !== 1) {
     throw new Error(

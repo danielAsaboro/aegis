@@ -1,10 +1,9 @@
 /**
  * ai-sdk-qvac provider tests.
  *
- * The model-bound side (doGenerate / doStream) requires a real GGUF; we
- * skip those tests when QVAC_LLM_MODEL_PATH is unset. The pure-function
- * side (prompt conversion, tool catalog rendering) is exercised
- * unconditionally.
+ * The model-bound side (doGenerate / doStream) requires a real GGUF and can
+ * take minutes on CPU. Keep it out of the default unit suite unless explicitly
+ * requested. The pure-function side is exercised unconditionally.
  */
 
 import { test, describe, after } from 'node:test';
@@ -110,20 +109,32 @@ describe('ai-sdk-qvac — provider factory', () => {
   });
 });
 
-describe('ai-sdk-qvac — live model', { skip: !process.env.QVAC_LLM_MODEL_PATH || !existsSync(process.env.QVAC_LLM_MODEL_PATH) }, () => {
+const runLiveQvac = process.env.AEGIS_RUN_QVAC_LIVE_TESTS === '1'
+  && process.env.QVAC_LLM_MODEL_PATH
+  && existsSync(process.env.QVAC_LLM_MODEL_PATH);
+
+describe('ai-sdk-qvac — live model', { skip: !runLiveQvac }, () => {
   after(async () => {
     const { shutdownSidecar } = await import('../../../engine/qvac/sidecar/client.mjs');
     await shutdownSidecar();
   });
 
-  test('doGenerate returns text content for a trivial prompt', async () => {
+  test('doGenerate returns text content for a trivial prompt', { timeout: 45_000 }, async () => {
     const m = provider.qvac('local');
-    const result = await m.doGenerate({
-      prompt: [
-        { role: 'system', content: 'You are concise.' },
-        { role: 'user', content: [{ type: 'text', text: 'Reply with the single word: ok' }] },
-      ],
-    });
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 40_000);
+    let result;
+    try {
+      result = await m.doGenerate({
+        prompt: [
+          { role: 'system', content: 'You are concise.' },
+          { role: 'user', content: [{ type: 'text', text: 'Reply with the single word: ok' }] },
+        ],
+        abortSignal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timer);
+    }
     const text = result.content.find(p => p.type === 'text')?.text || '';
     assert.ok(text.length > 0, `expected non-empty text, got: ${JSON.stringify(result)}`);
     assert.ok(['stop', 'tool-calls', 'length', 'other'].includes(result.finishReason));

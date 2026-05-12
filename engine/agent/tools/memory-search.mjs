@@ -57,7 +57,7 @@ function rank(vec, candidates) {
 }
 
 export const searchFacts = tool({
-  description: 'Semantic search over the user\'s remembered facts (preferences, sizes, watchlists). Use this when the user phrases a question fuzzily ("what was that thing about stables?") instead of a specific key. Falls back to recallFacts if QVAC embeddings are unavailable.',
+  description: 'Semantic search over the user\'s remembered facts, including preferences, sizes, watchlists, notes, plans, issues, proof constraints, and project lessons. Use this for fuzzy references ("what was that issue?", "our plan", "what did we learn?"). If ragAvailable=false, call recallFacts with a substring query.',
   inputSchema: z.object({
     query: z.string().min(1).describe('Natural-language search query.'),
     topK: z.number().int().positive().max(20).optional().describe('Max results (default 5).'),
@@ -101,7 +101,7 @@ export const searchFacts = tool({
 });
 
 export const searchTradeHistory = tool({
-  description: 'Semantic search over the user\'s past state-mutating tool calls (swaps, DCA plans, shield deposits/withdraws). Use when the user references prior trades fuzzily ("like last Tuesday", "the one that got denied"). Returns ranked summaries with timestamps and tx hashes when present.',
+  description: 'Semantic search over the user\'s past state-mutating tool calls (swaps, DCA plans, shield deposits/withdraws). Use when the user references prior trades/plans fuzzily ("like last Tuesday", "the one that got denied", "avoid the failed one"). Returns ranked summaries with timestamps and tx hashes when present.',
   inputSchema: z.object({
     query: z.string().min(1),
     topK: z.number().int().positive().max(20).optional(),
@@ -151,7 +151,7 @@ export const searchTradeHistory = tool({
 });
 
 export const summarizeSimilarTrades = tool({
-  description: 'Find past trades semantically similar to the user\'s current intent and return a brief pattern summary the model can lean on. Combines local retrieval (QVAC) with the active LLM for synthesis. The retrieval step never leaves the device.',
+  description: 'Find past trades semantically similar to the user\'s current intent and return a brief pattern summary the model can lean on before proposing a new trade or DCA. Combines local retrieval (QVAC) with deterministic summary stats. The retrieval step never leaves the device.',
   inputSchema: z.object({
     query: z.string().min(1).describe('Description of the intent or trade you want to find precedents for.'),
     topK: z.number().int().positive().max(15).optional(),

@@ -59,6 +59,18 @@ export async function registerStrategyRoutes(app) {
       votes: safeJson(r.votesJson, {}),
     }));
   });
+
+  app.get('/api/strategies/scheduled', async () => {
+    const prisma = getPrisma();
+    const rows = await prisma.scheduledJob.findMany({
+      orderBy: [{ createdAt: 'desc' }],
+      take: 100,
+    });
+    return rows.map((r) => ({
+      ...r,
+      payload: safeJson(r.payloadJson, {}),
+    }));
+  });
 }
 
 function parseDcaRow(r) {

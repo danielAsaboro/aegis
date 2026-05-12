@@ -1,0 +1,64 @@
+---
+title: "Introduction"
+description: "AEGIS is a policy-gated autonomous onchain trading agent built on top of the Zerion CLI."
+icon: "shield-check"
+---
+
+AEGIS turns natural-language trading requests into real onchain actions without replacing the Zerion CLI underneath. The wallet, swap routing, and execution layer stay inside the forked Zerion stack. AEGIS adds the agent loop, policy engine, automation, and private execution path on top.
+
+<Info>
+  Frontier constraint: AEGIS remains a Zerion CLI fork. Real swaps still route through Zerion and value-moving actions stay policy-gated.
+</Info>
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Boot the agent, provision the wallet, and run your first guided trade flow.
+  </Card>
+  <Card title="How AEGIS works" icon="route" href="/how-aegis-works">
+    Follow a user intent from model selection through policy-gated execution.
+  </Card>
+  <Card title="Architecture" icon="diagram-project" href="/architecture">
+    See how the LLM, policy engine, Zerion execution path, and MagicBlock fit together.
+  </Card>
+  <Card title="Models" icon="brain" href="/models">
+    Compare `codex/default`, `qvac/local`, live switching, and rejected API-key routes.
+  </Card>
+  <Card title="Track evidence" icon="badge-check" href="/track-evidence">
+    Review the proof map for the Frontier, MagicBlock, and QVAC submission.
+  </Card>
+  <Card title="What we built" icon="hammer" href="/what-we-built">
+    Read the milestone map of the AEGIS additions on top of Zerion CLI.
+  </Card>
+</CardGroup>
+
+## What AEGIS adds on top of Zerion
+
+- A natural-language agent loop over Telegram, long-running runtime automation, and MCP.
+- A fail-closed policy engine that runs before every value-moving action.
+- Strategy automation for DCA, signals, portfolio actions, and consensus flows.
+- A MagicBlock privacy path for shielded execution.
+- Optional local-first AI through QVAC instead of API-key billed model providers.
+
+## Core guarantees
+
+<Check>
+  All onchain actions continue to route through the forked Zerion CLI and the Zerion API path where required.
+</Check>
+
+<Check>
+  There is no bypass flag for swaps, bridges, shield operations, or scheduled executions.
+</Check>
+
+<Check>
+  The same policy engine protects Telegram-driven actions, automated strategies, and tool calls coming from external MCP hosts.
+</Check>
+
+## Read next
+
+<Columns cols={2}>
+  <Card title="Run it locally" icon="terminal" href="/development" />
+  <Card title="Execution path" icon="route" href="/how-aegis-works" />
+  <Card title="Connect Codex or Claude" icon="plug" href="/mcp-codex" />
+  <Card title="Private execution path" icon="user-secret" href="/private-execution" />
+  <Card title="Changelog" icon="list-tree" href="/changelog" />
+</Columns>
